@@ -8,8 +8,8 @@ export async function POST(request: Request) {
 
   if (!id) return NextResponse.json({ error: 'id required' }, { status: 400 });
 
-  const db = getDb();
-  const existing = db.prepare('SELECT * FROM users WHERE id = ?').get(id) as any;
+  const db = await getDb();
+  const existing = await db.prepare('SELECT * FROM users WHERE id = ?').get(id) as any;
 
   if (existing) {
     // User already exists, return their data
@@ -23,11 +23,11 @@ export async function POST(request: Request) {
   }
 
   // Create new user
-  db.prepare('INSERT INTO users (id, name, username, isOnline) VALUES (?, ?, ?, 1)').run(
+  await db.prepare('INSERT INTO users (id, name, username, isOnline) VALUES (?, ?, ?, 1)').run(
     id, name || '', username || ''
   );
 
-  const user = db.prepare('SELECT * FROM users WHERE id = ?').get(id) as any;
+  const user = await db.prepare('SELECT * FROM users WHERE id = ?').get(id) as any;
   return NextResponse.json({
     ...user,
     interests: JSON.parse(user.interests || '[]'),

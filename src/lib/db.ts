@@ -1,27 +1,101 @@
-import Database from 'better-sqlite3';
-import path from 'path';
-import fs from 'fs';
+import { createClient, Client } from '@libsql/client';
 
-// On Render (and locally) the DB lives in DATA_DIR so it survives restarts/redeploys.
-// DATA_DIR points to a mounted persistent disk in production; defaults to the project root locally.
-const DATA_DIR = process.env.DATA_DIR || process.cwd();
-try { fs.mkdirSync(DATA_DIR, { recursive: true }); } catch { /* ignore */ }
-const DB_PATH = path.join(DATA_DIR, 'campus.db');
+/**
+ * Database layer backed by Turso (libSQL) so it works on Netlify's serverless platform.
+ *
+ * Provides an async compatibility wrapper that mimics better-sqlite3's API:
+ *   const db = await getDb();
+ *   await db.prepare('SELECT * FROM users WHERE id = ?').get(id);   // one row or undefined
+ *   await db.prepare('SELECT * FROM users').all();                  // array of rows
+ *   await db.prepare('INSERT ...').run(a, b, c);                    // execute
+ *   await db.exec('CREATE TABLE ...; CREATE TABLE ...;');           // multi-statement
+ *
+ * Env vars required in production:
+ *   TURSO_DATABASE_URL  (e.g. libsql://your-db.turso.io)
+ *   TURSO_AUTH_TOKEN    (long token string)
+ * If unset, falls back to a local SQLite file for development.
+ */
 
-let db: Database.Database;
+let client: Client | null = null;
+let initialized = false;
 
-export function getDb(): Database.Database {
-  if (!db) {
-    db = new Database(DB_PATH);
-    db.pragma('journal_mode = WAL');
-    db.pragma('foreign_keys = ON');
-    initializeDb(db);
+function getClient(): Client {
+  if (!client) {
+    const url = process.env.TURSO_DATABASE_URL;
+    const authToken = process.env.TURSO_AUTH_TOKEN;
+    if (url) {
+      client = createClient({ url, authToken });
+    } else {
+      // Local dev fallback — a file-based libSQL database
+      client = createClient({ url: 'file:campus.db' });
+    }
   }
-  return db;
+  return client;
 }
 
-function initializeDb(db: Database.Database) {
-  db.exec(`
+interface PreparedStatement {
+  get: (...args: unknown[]) => Promise<any>;
+  all: (...args: unknown[]) => Promise<any[]>;
+  run: (...args: unknown[]) => Promise<{ changes: number; lastInsertRowid: bigint | undefined }>;
+}
+
+interface DbWrapper {
+  prepare: (sql: string) => PreparedStatement;
+  exec: (sql: string) => Promise<void>;
+}
+
+const wrapper: DbWrapper = {
+  prepare(sql: string): PreparedStatement {
+    const c = getClient();
+    return {
+      async get(...args: unknown[]) {
+        const res = await c.execute({ sql, args: args as any[] });
+        return res.rows[0] ? rowToObject(res) : undefined;
+      },
+      async all(...args: unknown[]) {
+        const res = await c.execute({ sql, args: args as any[] });
+        return rowsToObjects(res);
+      },
+      async run(...args: unknown[]) {
+        const res = await c.execute({ sql, args: args as any[] });
+        return { changes: res.rowsAffected, lastInsertRowid: res.lastInsertRowid };
+      },
+    };
+  },
+  async exec(sql: string) {
+    const c = getClient();
+    // Split multi-statement SQL and run each (libSQL executeMultiple handles this too)
+    await c.executeMultiple(sql);
+  },
+};
+
+// libSQL returns rows as arrays with a columns map; convert to plain objects like better-sqlite3
+function rowToObject(res: any): any {
+  const row = res.rows[0];
+  const obj: any = {};
+  res.columns.forEach((col: string, i: number) => { obj[col] = row[i]; });
+  return obj;
+}
+
+function rowsToObjects(res: any): any[] {
+  return res.rows.map((row: any) => {
+    const obj: any = {};
+    res.columns.forEach((col: string, i: number) => { obj[col] = row[i]; });
+    return obj;
+  });
+}
+
+export async function getDb(): Promise<DbWrapper> {
+  if (!initialized) {
+    await initializeDb();
+    initialized = true;
+  }
+  return wrapper;
+}
+
+async function initializeDb() {
+  const c = getClient();
+  await c.executeMultiple(`
     CREATE TABLE IF NOT EXISTS users (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
@@ -48,8 +122,6 @@ function initializeDb(db: Database.Database) {
       connectedUserId TEXT NOT NULL,
       type TEXT NOT NULL DEFAULT 'friend',
       createdAt TEXT DEFAULT (datetime('now')),
-      FOREIGN KEY (userId) REFERENCES users(id),
-      FOREIGN KEY (connectedUserId) REFERENCES users(id),
       UNIQUE(userId, connectedUserId)
     );
 
@@ -59,9 +131,7 @@ function initializeDb(db: Database.Database) {
       toUserId TEXT NOT NULL,
       type TEXT NOT NULL DEFAULT 'friend',
       status TEXT NOT NULL DEFAULT 'pending',
-      createdAt TEXT DEFAULT (datetime('now')),
-      FOREIGN KEY (fromUserId) REFERENCES users(id),
-      FOREIGN KEY (toUserId) REFERENCES users(id)
+      createdAt TEXT DEFAULT (datetime('now'))
     );
 
     CREATE TABLE IF NOT EXISTS notifications (
@@ -72,8 +142,7 @@ function initializeDb(db: Database.Database) {
       message TEXT NOT NULL,
       requestType TEXT,
       read INTEGER DEFAULT 0,
-      createdAt TEXT DEFAULT (datetime('now')),
-      FOREIGN KEY (userId) REFERENCES users(id)
+      createdAt TEXT DEFAULT (datetime('now'))
     );
 
     CREATE TABLE IF NOT EXISTS posts (
@@ -100,9 +169,7 @@ function initializeDb(db: Database.Database) {
       content TEXT NOT NULL,
       likes INTEGER DEFAULT 0,
       likedBy TEXT DEFAULT '[]',
-      createdAt TEXT DEFAULT (datetime('now')),
-      FOREIGN KEY (postId) REFERENCES posts(id),
-      FOREIGN KEY (authorId) REFERENCES users(id)
+      createdAt TEXT DEFAULT (datetime('now'))
     );
 
     CREATE TABLE IF NOT EXISTS conversations (
@@ -119,9 +186,7 @@ function initializeDb(db: Database.Database) {
       senderId TEXT NOT NULL,
       content TEXT NOT NULL,
       read INTEGER DEFAULT 0,
-      createdAt TEXT DEFAULT (datetime('now')),
-      FOREIGN KEY (conversationId) REFERENCES conversations(id),
-      FOREIGN KEY (senderId) REFERENCES users(id)
+      createdAt TEXT DEFAULT (datetime('now'))
     );
 
     CREATE TABLE IF NOT EXISTS games (
@@ -132,8 +197,7 @@ function initializeDb(db: Database.Database) {
       status TEXT DEFAULT 'active',
       participants TEXT DEFAULT '[]',
       data TEXT NOT NULL DEFAULT '{}',
-      createdAt TEXT DEFAULT (datetime('now')),
-      FOREIGN KEY (creatorId) REFERENCES users(id)
+      createdAt TEXT DEFAULT (datetime('now'))
     );
 
     CREATE TABLE IF NOT EXISTS stories (
@@ -144,8 +208,7 @@ function initializeDb(db: Database.Database) {
       backgroundColor TEXT DEFAULT '#6C5CE7',
       createdAt TEXT DEFAULT (datetime('now')),
       expiresAt TEXT NOT NULL,
-      views TEXT DEFAULT '[]',
-      FOREIGN KEY (userId) REFERENCES users(id)
+      views TEXT DEFAULT '[]'
     );
 
     CREATE TABLE IF NOT EXISTS secret_admirers (
@@ -156,9 +219,7 @@ function initializeDb(db: Database.Database) {
       status TEXT DEFAULT 'pending',
       revealFrom INTEGER DEFAULT 0,
       revealTo INTEGER DEFAULT 0,
-      createdAt TEXT DEFAULT (datetime('now')),
-      FOREIGN KEY (fromUserId) REFERENCES users(id),
-      FOREIGN KEY (toUserId) REFERENCES users(id)
+      createdAt TEXT DEFAULT (datetime('now'))
     );
 
     CREATE TABLE IF NOT EXISTS wingman_suggestions (
@@ -168,8 +229,7 @@ function initializeDb(db: Database.Database) {
       suggestedUserId TEXT NOT NULL,
       reason TEXT NOT NULL,
       status TEXT DEFAULT 'pending',
-      createdAt TEXT DEFAULT (datetime('now')),
-      FOREIGN KEY (wingmanId) REFERENCES users(id)
+      createdAt TEXT DEFAULT (datetime('now'))
     );
 
     CREATE TABLE IF NOT EXISTS event_participants (

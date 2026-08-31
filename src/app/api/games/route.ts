@@ -4,8 +4,8 @@ import crypto from 'crypto';
 
 // GET /api/games
 export async function GET() {
-  const db = getDb();
-  const games = db.prepare('SELECT * FROM games ORDER BY createdAt DESC').all();
+  const db = await getDb();
+  const games = await db.prepare('SELECT * FROM games ORDER BY createdAt DESC').all();
   return NextResponse.json(games.map((g: any) => ({
     ...g,
     participants: JSON.parse(g.participants || '[]'),
@@ -34,7 +34,7 @@ export async function POST(request: Request) {
     if (!Array.isArray(data?.statements) || data.statements.length === 0) return NextResponse.json({ error: 'At least one statement required' }, { status: 400 });
   }
 
-  const db = getDb();
+  const db = await getDb();
   const id = `g_${crypto.randomUUID().slice(0, 8)}`;
 
   // Normalize data with empty vote arrays
@@ -47,7 +47,7 @@ export async function POST(request: Request) {
     normalizedData = { statements: data.statements.map((s: any) => ({ text: (s.text || '').trim(), isLie: !!s.isLie })), guesses: [], revealed: false };
   }
 
-  db.prepare('INSERT INTO games (id, type, creatorId, title, status, participants, data) VALUES (?, ?, ?, ?, ?, ?, ?)').run(
+  await db.prepare('INSERT INTO games (id, type, creatorId, title, status, participants, data) VALUES (?, ?, ?, ?, ?, ?, ?)').run(
     id, type, creatorId, title.trim(), 'active', JSON.stringify([creatorId]), JSON.stringify(normalizedData)
   );
 
@@ -58,9 +58,9 @@ export async function POST(request: Request) {
 export async function PATCH(request: Request) {
   const body = await request.json();
   const { gameId, action, userId, option, statementIndex, response, guessIndex } = body;
-  const db = getDb();
+  const db = await getDb();
 
-  const game = db.prepare('SELECT * FROM games WHERE id = ?').get(gameId) as any;
+  const game = await db.prepare('SELECT * FROM games WHERE id = ?').get(gameId) as any;
   if (!game) return NextResponse.json({ error: 'Game not found' }, { status: 404 });
 
   const data = JSON.parse(game.data);
@@ -68,7 +68,7 @@ export async function PATCH(request: Request) {
   let participants: string[] = JSON.parse(game.participants || '[]');
   if (userId && !participants.includes(userId)) {
     participants = [...participants, userId];
-    db.prepare('UPDATE games SET participants = ? WHERE id = ?').run(JSON.stringify(participants), gameId);
+    await db.prepare('UPDATE games SET participants = ? WHERE id = ?').run(JSON.stringify(participants), gameId);
   }
 
   if (action === 'voteWouldYouRather') {
@@ -101,6 +101,6 @@ export async function PATCH(request: Request) {
     }
   }
 
-  db.prepare('UPDATE games SET data = ? WHERE id = ?').run(JSON.stringify(data), gameId);
+  await db.prepare('UPDATE games SET data = ? WHERE id = ?').run(JSON.stringify(data), gameId);
   return NextResponse.json({ success: true, data });
 }

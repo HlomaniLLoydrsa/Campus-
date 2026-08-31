@@ -20,14 +20,14 @@ export async function POST(request: Request) {
   const usernameRegex = /^[a-zA-Z0-9_]+$/;
   if (!usernameRegex.test(username)) return NextResponse.json({ error: 'Username can only contain letters, numbers, and underscores' }, { status: 400 });
 
-  const db = getDb();
+  const db = await getDb();
 
   // Check username uniqueness
-  const existingUsername = db.prepare('SELECT id FROM users WHERE username = ?').get(username);
+  const existingUsername = await db.prepare('SELECT id FROM users WHERE username = ?').get(username);
   if (existingUsername) return NextResponse.json({ error: 'Username already taken' }, { status: 409 });
 
   // Check email uniqueness
-  const existingEmail = db.prepare('SELECT id FROM users WHERE email = ?').get(email);
+  const existingEmail = await db.prepare('SELECT id FROM users WHERE email = ?').get(email);
   if (existingEmail) return NextResponse.json({ error: 'Email already registered' }, { status: 409 });
 
   // Hash password (simple hash for demo — in production use bcrypt)
@@ -35,7 +35,7 @@ export async function POST(request: Request) {
 
   // Create user
   const id = `u_${crypto.randomUUID().slice(0, 8)}`;
-  db.prepare(
+  await db.prepare(
     'INSERT INTO users (id, name, username, email, password, course, faculty, yearOfStudy, isOnline) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)'
   ).run(id, name.trim(), username.trim(), email.trim(), hashedPassword, course || '', faculty || '', yearOfStudy || 1);
 

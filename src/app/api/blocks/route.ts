@@ -6,8 +6,8 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const userId = searchParams.get('userId');
   if (!userId) return NextResponse.json({ error: 'userId required' }, { status: 400 });
-  const db = getDb();
-  const rows = db.prepare('SELECT blockedId FROM blocks WHERE blockerId = ?').all(userId) as any[];
+  const db = await getDb();
+  const rows = await db.prepare('SELECT blockedId FROM blocks WHERE blockerId = ?').all(userId) as any[];
   return NextResponse.json(rows.map(r => r.blockedId));
 }
 
@@ -17,12 +17,12 @@ export async function POST(request: Request) {
   const { blockerId, blockedId } = body;
   if (!blockerId || !blockedId) return NextResponse.json({ error: 'blockerId, blockedId required' }, { status: 400 });
 
-  const db = getDb();
-  db.prepare('INSERT OR IGNORE INTO blocks (blockerId, blockedId) VALUES (?, ?)').run(blockerId, blockedId);
+  const db = await getDb();
+  await db.prepare('INSERT OR IGNORE INTO blocks (blockerId, blockedId) VALUES (?, ?)').run(blockerId, blockedId);
   // Remove connections both directions
-  db.prepare('DELETE FROM connections WHERE (userId = ? AND connectedUserId = ?) OR (userId = ? AND connectedUserId = ?)').run(blockerId, blockedId, blockedId, blockerId);
+  await db.prepare('DELETE FROM connections WHERE (userId = ? AND connectedUserId = ?) OR (userId = ? AND connectedUserId = ?)').run(blockerId, blockedId, blockedId, blockerId);
   // Cancel any pending requests both directions
-  db.prepare("UPDATE connection_requests SET status = 'cancelled' WHERE ((fromUserId = ? AND toUserId = ?) OR (fromUserId = ? AND toUserId = ?)) AND status = 'pending'").run(blockerId, blockedId, blockedId, blockerId);
+  await db.prepare("UPDATE connection_requests SET status = 'cancelled' WHERE ((fromUserId = ? AND toUserId = ?) OR (fromUserId = ? AND toUserId = ?)) AND status = 'pending'").run(blockerId, blockedId, blockedId, blockerId);
   return NextResponse.json({ success: true }, { status: 201 });
 }
 
@@ -32,7 +32,7 @@ export async function DELETE(request: Request) {
   const blockerId = searchParams.get('blockerId');
   const blockedId = searchParams.get('blockedId');
   if (!blockerId || !blockedId) return NextResponse.json({ error: 'blockerId, blockedId required' }, { status: 400 });
-  const db = getDb();
-  db.prepare('DELETE FROM blocks WHERE blockerId = ? AND blockedId = ?').run(blockerId, blockedId);
+  const db = await getDb();
+  await db.prepare('DELETE FROM blocks WHERE blockerId = ? AND blockedId = ?').run(blockerId, blockedId);
   return NextResponse.json({ success: true });
 }

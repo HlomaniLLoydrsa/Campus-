@@ -8,15 +8,15 @@ export async function POST(request: Request) {
 
   if (!email || !password) return NextResponse.json({ error: 'Email and password are required' }, { status: 400 });
 
-  const db = getDb();
+  const db = await getDb();
 
   const hashedPassword = crypto.createHash('sha256').update(password + 'campus_salt').digest('hex');
 
-  const user = db.prepare('SELECT * FROM users WHERE email = ? AND password = ?').get(email.trim(), hashedPassword) as any;
+  const user = await db.prepare('SELECT * FROM users WHERE email = ? AND password = ?').get(email.trim(), hashedPassword) as any;
   if (!user) return NextResponse.json({ error: 'Invalid email or password' }, { status: 401 });
 
   // Update online status
-  db.prepare('UPDATE users SET isOnline = 1 WHERE id = ?').run(user.id);
+  await db.prepare('UPDATE users SET isOnline = 1 WHERE id = ?').run(user.id);
 
   return NextResponse.json({
     user: {

@@ -4,9 +4,9 @@ import crypto from 'crypto';
 
 // GET /api/posts
 export async function GET() {
-  const db = getDb();
-  const posts = db.prepare('SELECT * FROM posts ORDER BY createdAt DESC').all();
-  const comments = db.prepare('SELECT * FROM comments ORDER BY createdAt ASC').all();
+  const db = await getDb();
+  const posts = await db.prepare('SELECT * FROM posts ORDER BY createdAt DESC').all();
+  const comments = await db.prepare('SELECT * FROM comments ORDER BY createdAt ASC').all();
 
   const commentsByPost: Record<string, any[]> = {};
   for (const c of comments as any[]) {
@@ -29,7 +29,7 @@ export async function GET() {
 // POST /api/posts — create a new post
 export async function POST(request: Request) {
   const body = await request.json();
-  const db = getDb();
+  const db = await getDb();
   // Respect client-provided id so optimistic UI stays in sync; otherwise generate one
   const id = body.id || `p_${crypto.randomUUID().slice(0, 8)}`;
 
@@ -37,7 +37,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Post must have content or an image' }, { status: 400 });
   }
 
-  db.prepare('INSERT INTO posts (id, type, authorId, isAnonymous, content, images, likes, likedBy, savedBy, createdAt, eventData, iSawYouData, taggedUserId) VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?)').run(
+  await db.prepare('INSERT INTO posts (id, type, authorId, isAnonymous, content, images, likes, likedBy, savedBy, createdAt, eventData, iSawYouData, taggedUserId) VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?)').run(
     id, body.type || 'normal', body.authorId || null, body.isAnonymous ? 1 : 0,
     body.content || '', JSON.stringify(body.images || []), '[]', '[]',
     body.createdAt || new Date().toISOString(), body.eventData ? JSON.stringify(body.eventData) : null,

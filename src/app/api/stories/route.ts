@@ -4,10 +4,10 @@ import crypto from 'crypto';
 
 // GET /api/stories — get all active stories (less than 24h old)
 export async function GET() {
-  const db = getDb();
+  const db = await getDb();
 
   // Ensure stories table exists
-  db.exec(`CREATE TABLE IF NOT EXISTS stories (
+  await db.exec(`CREATE TABLE IF NOT EXISTS stories (
     id TEXT PRIMARY KEY,
     userId TEXT NOT NULL,
     content TEXT,
@@ -21,7 +21,7 @@ export async function GET() {
 
   // Get stories that haven't expired
   const now = new Date().toISOString();
-  const stories = db.prepare("SELECT * FROM stories WHERE expiresAt > ? ORDER BY createdAt DESC").all(now);
+  const stories = await db.prepare("SELECT * FROM stories WHERE expiresAt > ? ORDER BY createdAt DESC").all(now);
 
   return NextResponse.json(stories.map((s: any) => ({
     ...s,
@@ -37,10 +37,10 @@ export async function POST(request: Request) {
   if (!userId) return NextResponse.json({ error: 'userId required' }, { status: 400 });
   if (!content && !image) return NextResponse.json({ error: 'content or image required' }, { status: 400 });
 
-  const db = getDb();
+  const db = await getDb();
 
   // Ensure table exists
-  db.exec(`CREATE TABLE IF NOT EXISTS stories (
+  await db.exec(`CREATE TABLE IF NOT EXISTS stories (
     id TEXT PRIMARY KEY,
     userId TEXT NOT NULL,
     content TEXT,
@@ -56,7 +56,7 @@ export async function POST(request: Request) {
   const createdAt = new Date().toISOString();
   const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
 
-  db.prepare('INSERT INTO stories (id, userId, content, image, backgroundColor, createdAt, expiresAt, views) VALUES (?, ?, ?, ?, ?, ?, ?, ?)').run(
+  await db.prepare('INSERT INTO stories (id, userId, content, image, backgroundColor, createdAt, expiresAt, views) VALUES (?, ?, ?, ?, ?, ?, ?, ?)').run(
     id, userId, content || null, image || null, backgroundColor || '#6C5CE7', createdAt, expiresAt, '[]'
   );
 

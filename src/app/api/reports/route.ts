@@ -9,9 +9,9 @@ export async function POST(request: Request) {
   if (!reporterId || !targetType || !targetId) {
     return NextResponse.json({ error: 'reporterId, targetType, targetId required' }, { status: 400 });
   }
-  const db = getDb();
+  const db = await getDb();
   const id = `rep_${crypto.randomUUID().slice(0, 8)}`;
-  db.prepare('INSERT INTO reports (id, reporterId, targetType, targetId, reason) VALUES (?, ?, ?, ?, ?)').run(
+  await db.prepare('INSERT INTO reports (id, reporterId, targetType, targetId, reason) VALUES (?, ?, ?, ?, ?)').run(
     id, reporterId, targetType, targetId, reason || ''
   );
   return NextResponse.json({ id, success: true }, { status: 201 });

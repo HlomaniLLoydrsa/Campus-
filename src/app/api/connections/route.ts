@@ -7,8 +7,8 @@ export async function GET(request: Request) {
   const userId = searchParams.get('userId');
   if (!userId) return NextResponse.json({ error: 'userId required' }, { status: 400 });
 
-  const db = getDb();
-  const connections = db.prepare('SELECT connectedUserId, type FROM connections WHERE userId = ?').all(userId);
+  const db = await getDb();
+  const connections = await db.prepare('SELECT connectedUserId, type FROM connections WHERE userId = ?').all(userId);
   return NextResponse.json(connections);
 }
 
@@ -19,7 +19,7 @@ export async function DELETE(request: Request) {
   const targetId = searchParams.get('targetId');
   if (!userId || !targetId) return NextResponse.json({ error: 'userId and targetId required' }, { status: 400 });
 
-  const db = getDb();
-  db.prepare('DELETE FROM connections WHERE (userId = ? AND connectedUserId = ?) OR (userId = ? AND connectedUserId = ?)').run(userId, targetId, targetId, userId);
+  const db = await getDb();
+  await db.prepare('DELETE FROM connections WHERE (userId = ? AND connectedUserId = ?) OR (userId = ? AND connectedUserId = ?)').run(userId, targetId, targetId, userId);
   return NextResponse.json({ success: true });
 }

@@ -3,8 +3,8 @@ import { getDb } from '@/lib/db';
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const db = getDb();
-  const user = db.prepare('SELECT * FROM users WHERE id = ?').get(id) as any;
+  const db = await getDb();
+  const user = await db.prepare('SELECT * FROM users WHERE id = ?').get(id) as any;
   if (!user) return NextResponse.json({ error: 'User not found' }, { status: 404 });
   return NextResponse.json({
     ...user,
@@ -19,12 +19,11 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const body = await request.json();
-  const db = getDb();
+  const db = await getDb();
 
-  const user = db.prepare('SELECT * FROM users WHERE id = ?').get(id) as any;
+  const user = await db.prepare('SELECT * FROM users WHERE id = ?').get(id) as any;
   if (!user) return NextResponse.json({ error: 'User not found' }, { status: 404 });
 
-  // Validate required fields
   if (body.name !== undefined && !body.name.trim()) {
     return NextResponse.json({ error: 'Name cannot be empty' }, { status: 400 });
   }
@@ -32,14 +31,12 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     return NextResponse.json({ error: 'Username cannot be empty' }, { status: 400 });
   }
   if (body.username !== undefined) {
-    const existing = db.prepare('SELECT id FROM users WHERE username = ? AND id != ?').get(body.username, id);
+    const existing = await db.prepare('SELECT id FROM users WHERE username = ? AND id != ?').get(body.username, id);
     if (existing) return NextResponse.json({ error: 'Username already taken' }, { status: 409 });
   }
 
-  // Build update
   const fields: string[] = [];
   const values: any[] = [];
-
   const allowedFields = ['name', 'username', 'avatar', 'coverImage', 'bio', 'course', 'faculty', 'yearOfStudy', 'interests', 'hobbies', 'wingmanEnabled'];
 
   for (const field of allowedFields) {
@@ -62,9 +59,9 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   }
 
   values.push(id);
-  db.prepare(`UPDATE users SET ${fields.join(', ')} WHERE id = ?`).run(...values);
+  await db.prepare(`UPDATE users SET ${fields.join(', ')} WHERE id = ?`).run(...values);
 
-  const updated = db.prepare('SELECT * FROM users WHERE id = ?').get(id) as any;
+  const updated = await db.prepare('SELECT * FROM users WHERE id = ?').get(id) as any;
   return NextResponse.json({
     ...updated,
     interests: JSON.parse(updated.interests || '[]'),

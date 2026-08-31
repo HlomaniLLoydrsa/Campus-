@@ -41,9 +41,9 @@ const BADGE_DEFS: BadgeDef[] = [
   { id: 'popular', name: 'Popular', emoji: '🌟', description: 'Connected with 10+ people', check: s => s.connections >= 10 },
 ];
 
-function computeStats(db: any, userId: string): Stats {
-  const userRow = db.prepare('SELECT createdAt FROM users WHERE id = ?').get(userId) as any;
-  const allPosts = db.prepare('SELECT * FROM posts WHERE authorId = ?').all(userId) as any[];
+async function computeStats(db: any, userId: string): Promise<Stats> {
+  const userRow = await db.prepare('SELECT createdAt FROM users WHERE id = ?').get(userId) as any;
+  const allPosts = await db.prepare('SELECT * FROM posts WHERE authorId = ?').all(userId) as any[];
   const posts = allPosts.length;
   const confessions = allPosts.filter(p => p.type === 'confession').length;
   const questions = allPosts.filter(p => p.type === 'question').length;
@@ -51,16 +51,16 @@ function computeStats(db: any, userId: string): Stats {
   const events = allPosts.filter(p => p.type === 'event' || p.eventData).length;
   const trendingPost = allPosts.some(p => (p.likes || 0) >= 10);
 
-  const connections = (db.prepare('SELECT COUNT(*) as c FROM connections WHERE userId = ?').get(userId) as any).c;
-  const gamesCreated = (db.prepare('SELECT COUNT(*) as c FROM games WHERE creatorId = ?').get(userId) as any).c;
-  const allGames = db.prepare('SELECT participants FROM games').all() as any[];
+  const connections = (await db.prepare('SELECT COUNT(*) as c FROM connections WHERE userId = ?').get(userId) as any).c;
+  const gamesCreated = (await db.prepare('SELECT COUNT(*) as c FROM games WHERE creatorId = ?').get(userId) as any).c;
+  const allGames = await db.prepare('SELECT participants FROM games').all() as any[];
   const gamesPlayed = allGames.filter(g => { try { return JSON.parse(g.participants || '[]').includes(userId); } catch { return false; } }).length;
   const now = new Date().toISOString();
-  const storiesPosted = (db.prepare('SELECT COUNT(*) as c FROM stories WHERE userId = ? AND expiresAt > ?').get(userId, now) as any).c;
-  const wingmanSuggestions = (db.prepare('SELECT COUNT(*) as c FROM wingman_suggestions WHERE wingmanId = ?').get(userId) as any).c;
+  const storiesPosted = (await db.prepare('SELECT COUNT(*) as c FROM stories WHERE userId = ? AND expiresAt > ?').get(userId, now) as any).c;
+  const wingmanSuggestions = (await db.prepare('SELECT COUNT(*) as c FROM wingman_suggestions WHERE wingmanId = ?').get(userId) as any).c;
 
   // Early member: among the first 20 users
-  const rank = (db.prepare('SELECT COUNT(*) as c FROM users WHERE createdAt <= ?').get(userRow?.createdAt || now) as any).c;
+  const rank = (await db.prepare('SELECT COUNT(*) as c FROM users WHERE createdAt <= ?').get(userRow?.createdAt || now) as any).c;
   const isEarlyMember = rank <= 20;
 
   return { posts, confessions, questions, shoutouts, events, connections, gamesCreated, gamesPlayed, storiesPosted, wingmanSuggestions, isEarlyMember, trendingPost };
@@ -72,34 +72,35 @@ export async function GET(request: Request) {
   const userId = searchParams.get('userId');
   if (!userId) return NextResponse.json({ error: 'userId required' }, { status: 400 });
 
-  const db = getDb();
+  const db = await getDb();
 
   try {
-  const stats = computeStats(db, userId);
+  const stats = await computeStats(db, userId);
 
-  const earnedRows = db.prepare('SELECT badgeId, earnedAt FROM badges WHERE userId = ?').all(userId) as any[];
+  const earnedRows = await db.prepare('SELECT badgeId, earnedAt FROM badges WHERE userId = ?').all(userId) as any[];
   const earnedMap = new Map(earnedRows.map(r => [r.badgeId, r.earnedAt]));
 
   // Confirm the user actually exists before writing any FK-bound rows
-  const userExists = db.prepare('SELECT 1 FROM users WHERE id = ?').get(userId);
+  const userExists = await db.prepare('SELECT 1 FROM users WHERE id = ?').get(userId);
 
-  const result = BADGE_DEFS.map(def => {
+  const result = [];
+  for (const def of BADGE_DEFS) {
     const qualifies = def.check(stats);
     let earnedAt = earnedMap.get(def.id);
     // Newly earned → persist (only if the user row exists)
     if (qualifies && !earnedAt && userExists) {
       earnedAt = new Date().toISOString();
       try {
-        db.prepare('INSERT OR IGNORE INTO badges (userId, badgeId, earnedAt) VALUES (?, ?, ?)').run(userId, def.id, earnedAt);
+        await db.prepare('INSERT OR IGNORE INTO badges (userId, badgeId, earnedAt) VALUES (?, ?, ?)').run(userId, def.id, earnedAt);
         // Notify user of new badge — wrapped so a notification failure never breaks the endpoint
         const nid = `n_${Date.now()}_${def.id}`;
-        db.prepare('INSERT OR IGNORE INTO notifications (id, userId, type, message, read) VALUES (?, ?, ?, ?, 0)').run(nid, userId, 'new-connection', `You earned the ${def.emoji} ${def.name} badge!`);
+        await db.prepare('INSERT OR IGNORE INTO notifications (id, userId, type, message, read) VALUES (?, ?, ?, ?, 0)').run(nid, userId, 'new-connection', `You earned the ${def.emoji} ${def.name} badge!`);
       } catch {
         // ignore — badge display still works from computed `qualifies`
       }
     }
-    return { id: def.id, name: def.name, emoji: def.emoji, description: def.description, earned: qualifies || !!earnedMap.get(def.id), earnedAt: earnedAt || null };
-  });
+    result.push({ id: def.id, name: def.name, emoji: def.emoji, description: def.description, earned: qualifies || !!earnedMap.get(def.id), earnedAt: earnedAt || null });
+  }
 
   return NextResponse.json({ badges: result, stats });
   } catch (e) {
