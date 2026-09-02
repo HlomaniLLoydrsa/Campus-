@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import crypto from 'crypto';
-import { getStore } from '@netlify/blobs';
+import { saveImage } from '@/lib/storage';
 
 // Map common image MIME types to a clean file extension
 const MIME_EXT: Record<string, string> = {
@@ -47,11 +47,9 @@ export async function POST(request: Request) {
     const filename = `${crypto.randomUUID()}.${ext}`;
     const bytes = await file.arrayBuffer();
 
-    const store = getStore('uploads');
-    await store.set(filename, bytes, { metadata: { contentType: file.type } });
+    // Saves to Netlify Blobs in production, or public/uploads locally
+    const url = await saveImage(filename, bytes, file.type);
 
-    // Served back through the /api/uploads route
-    const url = `/api/uploads/${filename}`;
     return NextResponse.json({ url, filename }, { status: 201 });
   } catch (error) {
     console.error('Upload error:', error);

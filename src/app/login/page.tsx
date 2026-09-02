@@ -39,7 +39,7 @@ export default function LoginPage() {
     <div className="relative min-h-screen flex items-center justify-center px-4">
       {/* Same placeholder picture as the landing page */}
       <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: "url('/images/app-bg.jpg')" }} />
-      <div className="absolute inset-0 bg-gradient-to-br from-campus-dark/85 via-campus-primary/80 to-campus-secondary/85" />
+      <div className="absolute inset-0 bg-gradient-to-br from-campus-dark/60 via-campus-primary/50 to-campus-secondary/60" />
       <div className="relative z-10 w-full max-w-sm bg-white rounded-2xl shadow-2xl p-6">
         {/* Logo */}
         <div className="text-center mb-8">

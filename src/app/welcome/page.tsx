@@ -21,8 +21,8 @@ export default function WelcomePage() {
     <div className="relative min-h-screen flex flex-col">
       {/* Background placeholder image — replace /public/images/app-bg.jpg with your own */}
       <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: "url('/images/app-bg.jpg')" }} />
-      {/* Color overlay so text stays readable */}
-      <div className="absolute inset-0 bg-gradient-to-br from-campus-dark/85 via-campus-primary/80 to-campus-secondary/85" />
+      {/* Lighter color overlay so the picture shows through while text stays readable */}
+      <div className="absolute inset-0 bg-gradient-to-br from-campus-dark/60 via-campus-primary/50 to-campus-secondary/60" />
       {/* Content wrapper above the background */}
       <div className="relative z-10 flex flex-col flex-1">
       {/* Nav */}
