@@ -197,16 +197,16 @@ function StoryCreateModal({ onClose, onCreate }: { onClose: () => void; onCreate
 
   return (
     <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl w-full max-w-sm p-6">
-        <div className="flex items-center justify-between mb-4">
+      <div className="bg-white rounded-2xl w-full max-w-sm p-5 max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between mb-3">
           <h3 className="font-bold text-lg">Create Story</h3>
           <button onClick={onClose} className="p-1 rounded-lg hover:bg-gray-100"><X size={20} /></button>
         </div>
 
-        {/* Preview */}
-        <div className="rounded-xl overflow-hidden mb-4 aspect-[9/16] flex items-center justify-center relative" style={{ backgroundColor: imagePreview ? '#000' : bgColor }}>
+        {/* Preview — compact so the buttons below stay visible */}
+        <div className="rounded-xl overflow-hidden mb-3 h-40 flex items-center justify-center relative" style={{ backgroundColor: imagePreview ? '#000' : bgColor }}>
           {imagePreview && <img src={imagePreview} alt="" className="absolute inset-0 w-full h-full object-contain" />}
-          <p className="relative text-white font-semibold text-center px-4 text-lg break-words drop-shadow">{content || 'Your story preview'}</p>
+          <p className="relative text-white font-semibold text-center px-4 text-base break-words drop-shadow">{content || 'Your story preview'}</p>
         </div>
 
         <textarea value={content} onChange={(e) => setContent(e.target.value)} placeholder="What's on your mind? (disappears in 24h)" rows={2} className="input-field resize-none mb-3" />

@@ -18,7 +18,13 @@ export default function WelcomePage() {
   if (isLoading) return null;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-campus-dark via-campus-primary to-campus-secondary flex flex-col">
+    <div className="relative min-h-screen flex flex-col">
+      {/* Background placeholder image — replace /public/images/app-bg.jpg with your own */}
+      <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: "url('/images/app-bg.jpg')" }} />
+      {/* Color overlay so text stays readable */}
+      <div className="absolute inset-0 bg-gradient-to-br from-campus-dark/85 via-campus-primary/80 to-campus-secondary/85" />
+      {/* Content wrapper above the background */}
+      <div className="relative z-10 flex flex-col flex-1">
       {/* Nav */}
       <nav className="flex items-center justify-between px-6 py-4">
         <div className="flex items-center gap-2">
@@ -69,6 +75,7 @@ export default function WelcomePage() {
       {/* Footer */}
       <div className="text-center py-6 text-white/50 text-xs">
         Campus Social Network &copy; 2026
+      </div>
       </div>
     </div>
   );
