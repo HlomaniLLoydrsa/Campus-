@@ -1,9 +1,11 @@
 'use client';
 
 import React from 'react';
+import { useRouter } from 'next/navigation';
 import { X, Check, CheckCheck } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
 import { formatTimeAgo } from '@/lib/utils';
+import { getNotificationHref } from '@/lib/notificationNav';
 
 interface Props {
   onClose: () => void;
@@ -11,6 +13,14 @@ interface Props {
 
 export default function NotificationsPanel({ onClose }: Props) {
   const { notifications, markNotificationRead, markAllNotificationsRead, getUserById } = useApp();
+  const router = useRouter();
+
+  const handleClick = (notification: (typeof notifications)[number]) => {
+    markNotificationRead(notification.id);
+    const href = getNotificationHref(notification);
+    onClose();
+    router.push(href);
+  };
 
   const getNotificationIcon = (type: string) => {
     switch (type) {
@@ -56,7 +66,7 @@ export default function NotificationsPanel({ onClose }: Props) {
             return (
               <div
                 key={notification.id}
-                onClick={() => markNotificationRead(notification.id)}
+                onClick={() => handleClick(notification)}
                 className={`flex items-start gap-3 p-4 hover:bg-gray-50 cursor-pointer transition-colors border-b border-gray-50 ${
                   !notification.read ? 'bg-campus-primary/5' : ''
                 }`}

@@ -61,7 +61,7 @@ export async function POST(request: Request) {
     : `${senderName} sent you a relationship request`;
   const notifType = type === 'friend' ? 'friend-request' : 'relationship-request';
 
-  await db.prepare('INSERT INTO notifications (id, userId, type, fromUserId, message, requestType, read) VALUES (?, ?, ?, ?, ?, ?, ?)').run(notifId, toUserId, notifType, fromUserId, notifMessage, type, 0);
+  await db.prepare('INSERT INTO notifications (id, userId, type, fromUserId, message, requestType, relatedId, relatedType, read) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)').run(notifId, toUserId, notifType, fromUserId, notifMessage, type, id, 'request', 0);
 
   return NextResponse.json({ id, fromUserId, toUserId, type, status: 'pending', notification: { id: notifId, message: notifMessage } }, { status: 201 });
 }

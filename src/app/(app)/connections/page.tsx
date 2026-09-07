@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import Sidebar from '@/components/layout/Sidebar';
 import BottomNav from '@/components/layout/BottomNav';
 import TopBar from '@/components/layout/TopBar';
@@ -11,9 +12,25 @@ import { Search, Users } from 'lucide-react';
 import Link from 'next/link';
 
 export default function ConnectionsPage() {
+  return (
+    <Suspense fallback={null}>
+      <ConnectionsContent />
+    </Suspense>
+  );
+}
+
+function ConnectionsContent() {
   const { currentUser, users, connections, connectionRequests, getConnectionStatus } = useApp();
+  const searchParams = useSearchParams();
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState<'requests' | 'discover'>('discover');
+  const highlightId = searchParams.get('highlight');
+
+  // Open the requested tab when arriving from a notification
+  useEffect(() => {
+    const tab = searchParams.get('tab');
+    if (tab === 'requests' || tab === 'discover') setActiveTab(tab);
+  }, [searchParams]);
 
   const incomingRequests = connectionRequests.filter(r => r.toUserId === currentUser.id && r.status === 'pending');
   const outgoingRequests = connectionRequests.filter(r => r.fromUserId === currentUser.id && r.status === 'pending');
@@ -59,8 +76,9 @@ export default function ConnectionsPage() {
                       const fromUser = users.find(u => u.id === request.fromUserId);
                       if (!fromUser) return null;
                       const status = getConnectionStatus(fromUser.id);
+                      const isHighlighted = highlightId === request.id;
                       return (
-                        <div key={request.id} className="card p-4">
+                        <div key={request.id} className={`card p-4 transition-all ${isHighlighted ? 'ring-2 ring-campus-primary bg-campus-primary/5' : ''}`}>
                           <div className="flex items-start gap-3">
                             <Link href={`/profile/${fromUser.id}`}>
                               <Avatar src={fromUser.avatar} name={fromUser.name} size={48} />

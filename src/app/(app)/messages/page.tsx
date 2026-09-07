@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import Sidebar from '@/components/layout/Sidebar';
 import BottomNav from '@/components/layout/BottomNav';
 import TopBar from '@/components/layout/TopBar';
@@ -10,7 +11,16 @@ import { formatTimeAgo } from '@/lib/utils';
 import Avatar from '@/components/Avatar';
 
 export default function MessagesPage() {
+  return (
+    <Suspense fallback={null}>
+      <MessagesContent />
+    </Suspense>
+  );
+}
+
+function MessagesContent() {
   const { currentUser, conversations, sendMessage, getUserById, isConnected, markConversationRead, createConversation, connections, users } = useApp();
+  const searchParams = useSearchParams();
   const [selectedConv, setSelectedConv] = useState<string | null>(null);
   const [messageText, setMessageText] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
@@ -18,6 +28,12 @@ export default function MessagesPage() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const selectedConversation = conversations.find(c => c.id === selectedConv);
+
+  // Open a conversation when arriving from a message notification
+  useEffect(() => {
+    const convId = searchParams.get('conversation');
+    if (convId) setSelectedConv(convId);
+  }, [searchParams]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });

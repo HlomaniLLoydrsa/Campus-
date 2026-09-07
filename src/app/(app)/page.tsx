@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import Sidebar from '@/components/layout/Sidebar';
 import BottomNav from '@/components/layout/BottomNav';
 import TopBar from '@/components/layout/TopBar';
@@ -17,9 +18,30 @@ import { Story } from '@/types';
 const STORY_COLORS = ['#00002A', '#1A3F75', '#4E6A9C', '#A9C4DE', '#2E8B77', '#5A7BA8', '#3B5480'];
 
 export default function HomePage() {
+  return (
+    <Suspense fallback={null}>
+      <HomeContent />
+    </Suspense>
+  );
+}
+
+function HomeContent() {
   const { posts, currentUser, getUserById, stories, createStory, users, connections, games, getConnectionStatus } = useApp();
+  const searchParams = useSearchParams();
   const [showStoryCreate, setShowStoryCreate] = useState(false);
   const [viewingStoryUser, setViewingStoryUser] = useState<string | null>(null);
+  const [highlightPost, setHighlightPost] = useState<string | null>(null);
+
+  // Scroll to and highlight a post when arriving from a notification (?post=<id>)
+  useEffect(() => {
+    const postId = searchParams.get('post');
+    if (!postId || posts.length === 0) return;
+    setHighlightPost(postId);
+    const el = document.getElementById(`post-${postId}`);
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    const timer = setTimeout(() => setHighlightPost(null), 2500);
+    return () => clearTimeout(timer);
+  }, [searchParams, posts.length]);
 
   // Group stories by user
   const storiesByUser = stories.reduce((acc, story) => {
@@ -142,7 +164,15 @@ export default function HomePage() {
           {/* Feed */}
           <div className="space-y-4">
             {posts.length > 0 ? (
-              posts.map(post => <PostCard key={post.id} post={post} />)
+              posts.map(post => (
+                <div
+                  key={post.id}
+                  id={`post-${post.id}`}
+                  className={`rounded-2xl transition-all ${highlightPost === post.id ? 'ring-2 ring-campus-primary' : ''}`}
+                >
+                  <PostCard post={post} />
+                </div>
+              ))
             ) : (
               <div className="card p-10 text-center">
                 <div className="w-14 h-14 rounded-2xl bg-campus-primary/10 flex items-center justify-center mx-auto mb-3">

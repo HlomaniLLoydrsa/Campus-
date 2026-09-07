@@ -141,6 +141,8 @@ async function initializeDb() {
       fromUserId TEXT,
       message TEXT NOT NULL,
       requestType TEXT,
+      relatedId TEXT,
+      relatedType TEXT,
       read INTEGER DEFAULT 0,
       createdAt TEXT DEFAULT (datetime('now'))
     );
@@ -274,4 +276,24 @@ async function initializeDb() {
       UNIQUE(userId, badgeId)
     );
   `);
+
+  // Safe additive migrations for databases created before newer columns existed.
+  // These only run when the column is missing; errors (already exists) are ignored.
+  await ensureColumn(c, 'notifications', 'relatedId', 'TEXT');
+  await ensureColumn(c, 'notifications', 'relatedType', 'TEXT');
+}
+
+async function ensureColumn(c: Client, table: string, column: string, type: string) {
+  try {
+    const info = await c.execute(`PRAGMA table_info(${table})`);
+    const has = info.rows.some((row: any) => {
+      const name = (row as any).name ?? row[1];
+      return name === column;
+    });
+    if (!has) {
+      await c.execute(`ALTER TABLE ${table} ADD COLUMN ${column} ${type}`);
+    }
+  } catch {
+    // Ignore — column likely already exists or table not yet created
+  }
 }

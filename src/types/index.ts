@@ -175,6 +175,8 @@ export interface Notification {
   createdAt: string;
   groupCount?: number;
   requestType?: RequestType;
+  relatedId?: string;
+  relatedType?: 'request' | 'connection' | 'conversation' | 'post' | 'game';
 }
 
 export interface Badge {

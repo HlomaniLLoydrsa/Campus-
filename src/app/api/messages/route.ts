@@ -74,7 +74,7 @@ export async function POST(request: Request) {
     const nid = `n_${crypto.randomUUID().slice(0, 8)}`;
     const nType = conv.type === 'direct' ? 'new-message' : 'group-message';
     const msg = conv.type === 'direct' ? `${sender?.name || 'Someone'} sent you a message` : `${sender?.name || 'Someone'} messaged ${conv.name || 'the group'}`;
-    await db.prepare('INSERT INTO notifications (id, userId, type, fromUserId, message, read) VALUES (?, ?, ?, ?, ?, 0)').run(nid, uid, nType, senderId, msg);
+    await db.prepare('INSERT INTO notifications (id, userId, type, fromUserId, message, relatedId, relatedType, read) VALUES (?, ?, ?, ?, ?, ?, ?, 0)').run(nid, uid, nType, senderId, msg, conversationId, 'conversation');
   }
 
   return NextResponse.json({ id, conversationId, senderId, content, read: false, createdAt }, { status: 201 });

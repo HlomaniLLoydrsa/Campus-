@@ -21,7 +21,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     // Notify the post author — this is meaningful (someone thinks it's about them)
     if (post.authorId && post.authorId !== userId) {
       const nid = `n_${Date.now()}`;
-      await db.prepare('INSERT INTO notifications (id, userId, type, fromUserId, message, read) VALUES (?, ?, ?, ?, ?, 0)').run(nid, post.authorId, 'mention', userId, 'Someone thinks your "I Saw You" post is about them 👀');
+      await db.prepare('INSERT INTO notifications (id, userId, type, fromUserId, message, relatedId, relatedType, read) VALUES (?, ?, ?, ?, ?, ?, ?, 0)').run(nid, post.authorId, 'mention', userId, 'Someone thinks your "I Saw You" post is about them 👀', post.id, 'post');
     }
   }
 

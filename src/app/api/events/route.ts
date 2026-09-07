@@ -25,7 +25,7 @@ export async function POST(request: Request) {
       if (post.authorId) {
         const joiner = await db.prepare('SELECT name FROM users WHERE id = ?').get(userId) as any;
         const nid = `n_${crypto.randomUUID().slice(0, 8)}`;
-        await db.prepare('INSERT INTO notifications (id, userId, type, fromUserId, message, read) VALUES (?, ?, ?, ?, ?, 0)').run(nid, post.authorId, 'event-join-request', userId, `${joiner?.name || 'Someone'} requested to join ${eventData.name}`);
+        await db.prepare('INSERT INTO notifications (id, userId, type, fromUserId, message, relatedId, relatedType, read) VALUES (?, ?, ?, ?, ?, ?, ?, 0)').run(nid, post.authorId, 'event-join-request', userId, `${joiner?.name || 'Someone'} requested to join ${eventData.name}`, postId, 'post');
       }
     } else {
       eventData.participants.push(userId);

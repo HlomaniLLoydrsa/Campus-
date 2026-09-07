@@ -44,7 +44,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       ? `${accepter?.name} accepted your friend request`
       : `${accepter?.name} accepted your relationship request`;
 
-    await db.prepare('INSERT INTO notifications (id, userId, type, fromUserId, message, requestType, read) VALUES (?, ?, ?, ?, ?, ?, ?)').run(notifId, req.fromUserId, notifType, userId, msg, req.type, 0);
+    await db.prepare('INSERT INTO notifications (id, userId, type, fromUserId, message, requestType, relatedId, relatedType, read) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)').run(notifId, req.fromUserId, notifType, userId, msg, req.type, userId, 'connection', 0);
 
     return NextResponse.json({ success: true, action: 'accepted', connectionType: connType });
   }

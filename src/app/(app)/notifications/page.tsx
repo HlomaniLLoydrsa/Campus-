@@ -1,15 +1,23 @@
 'use client';
 
 import React from 'react';
+import { useRouter } from 'next/navigation';
 import Sidebar from '@/components/layout/Sidebar';
 import BottomNav from '@/components/layout/BottomNav';
 import TopBar from '@/components/layout/TopBar';
 import { useApp } from '@/context/AppContext';
 import { Bell, CheckCheck } from 'lucide-react';
 import { formatTimeAgo } from '@/lib/utils';
+import { getNotificationHref } from '@/lib/notificationNav';
 
 export default function NotificationsPage() {
   const { notifications, markNotificationRead, markAllNotificationsRead, getUserById } = useApp();
+  const router = useRouter();
+
+  const openNotification = (n: (typeof notifications)[number]) => {
+    markNotificationRead(n.id);
+    router.push(getNotificationHref(n));
+  };
 
   const getNotificationIcon = (type: string) => {
     const icons: Record<string, string> = {
@@ -43,7 +51,7 @@ export default function NotificationsPage() {
                 {unread.map(n => {
                   const fromUser = n.fromUserId ? getUserById(n.fromUserId) : null;
                   return (
-                    <div key={n.id} onClick={() => markNotificationRead(n.id)} className="card p-4 bg-campus-primary/5 border-campus-primary/10 cursor-pointer hover:bg-campus-primary/10 transition-colors">
+                    <div key={n.id} onClick={() => openNotification(n)} className="card p-4 bg-campus-primary/5 border-campus-primary/10 cursor-pointer hover:bg-campus-primary/10 transition-colors">
                       <div className="flex items-start gap-3">
                         <div className="flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center bg-white shadow-sm text-lg">
                           {fromUser ? <img src={fromUser.avatar} alt="" className="w-10 h-10 rounded-full object-cover" /> : getNotificationIcon(n.type)}
@@ -71,7 +79,7 @@ export default function NotificationsPage() {
                 {read.map(n => {
                   const fromUser = n.fromUserId ? getUserById(n.fromUserId) : null;
                   return (
-                    <div key={n.id} className="card p-4 cursor-pointer hover:bg-gray-50 transition-colors">
+                    <div key={n.id} onClick={() => openNotification(n)} className="card p-4 cursor-pointer hover:bg-gray-50 transition-colors">
                       <div className="flex items-start gap-3">
                         <div className="flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center bg-gray-100 text-lg">
                           {fromUser ? <img src={fromUser.avatar} alt="" className="w-10 h-10 rounded-full object-cover" /> : getNotificationIcon(n.type)}
