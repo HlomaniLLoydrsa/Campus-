@@ -66,16 +66,8 @@ export async function POST(request: Request) {
   const createdAt = new Date().toISOString();
   await db.prepare('INSERT INTO messages (id, conversationId, senderId, content, read, createdAt) VALUES (?, ?, ?, ?, 0, ?)').run(id, conversationId, senderId, content, createdAt);
 
-  // Notify other participants
-  const sender = await db.prepare('SELECT name FROM users WHERE id = ?').get(senderId) as any;
-  const parts: string[] = JSON.parse(conv.participants || '[]');
-  const convName = conv.name || sender?.name || 'New message';
-  for (const uid of parts.filter(p => p !== senderId)) {
-    const nid = `n_${crypto.randomUUID().slice(0, 8)}`;
-    const nType = conv.type === 'direct' ? 'new-message' : 'group-message';
-    const msg = conv.type === 'direct' ? `${sender?.name || 'Someone'} sent you a message` : `${sender?.name || 'Someone'} messaged ${conv.name || 'the group'}`;
-    await db.prepare('INSERT INTO notifications (id, userId, type, fromUserId, message, relatedId, relatedType, read) VALUES (?, ?, ?, ?, ?, ?, ?, 0)').run(nid, uid, nType, senderId, msg, conversationId, 'conversation');
-  }
+  // NOTE: messages intentionally do NOT create notifications.
+  // Unread messages are surfaced only via the message icon badge (conversation unreadCount).
 
   return NextResponse.json({ id, conversationId, senderId, content, read: false, createdAt }, { status: 201 });
 }

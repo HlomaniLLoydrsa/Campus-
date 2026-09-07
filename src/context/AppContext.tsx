@@ -48,6 +48,8 @@ interface AppContextType {
   respondToISawYou: (postId: string) => void;
   joinEvent: (postId: string) => void;
   leaveEvent: (postId: string) => void;
+  approveEventJoin: (postId: string, targetUserId: string) => void;
+  rejectEventJoin: (postId: string, targetUserId: string) => void;
   stories: Story[];
   createStory: (content: string, image: string | undefined, backgroundColor: string) => Promise<void>;
   sharePost: (postId: string) => void;
@@ -448,10 +450,29 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const leaveEvent = useCallback((postId: string) => {
     setPosts(prev => prev.map(p => {
-      if (p.id !== postId || !p.eventData || !p.eventData.participants.includes(currentUser.id)) return p;
+      // Organizer cannot leave their own event
+      if (p.id !== postId || !p.eventData || !p.eventData.participants.includes(currentUser.id) || p.authorId === currentUser.id) return p;
       return { ...p, eventData: { ...p.eventData, participants: p.eventData.participants.filter(id => id !== currentUser.id), currentParticipants: p.eventData.currentParticipants - 1 } };
     }));
     fetch('/api/events', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ postId, userId: currentUser.id, action: 'leave' }) }).catch(() => {});
+  }, [currentUser.id]);
+
+  const approveEventJoin = useCallback((postId: string, targetUserId: string) => {
+    setPosts(prev => prev.map(p => {
+      if (p.id !== postId || !p.eventData) return p;
+      const ed = p.eventData;
+      return { ...p, eventData: { ...ed, pendingRequests: ed.pendingRequests.filter(id => id !== targetUserId), participants: ed.participants.includes(targetUserId) ? ed.participants : [...ed.participants, targetUserId], currentParticipants: (ed.participants.includes(targetUserId) ? ed.participants.length : ed.participants.length + 1) } };
+    }));
+    fetch('/api/events', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ postId, userId: currentUser.id, action: 'approve', targetUserId }) }).catch(() => {});
+  }, [currentUser.id]);
+
+  const rejectEventJoin = useCallback((postId: string, targetUserId: string) => {
+    setPosts(prev => prev.map(p => {
+      if (p.id !== postId || !p.eventData) return p;
+      const ed = p.eventData;
+      return { ...p, eventData: { ...ed, pendingRequests: ed.pendingRequests.filter(id => id !== targetUserId) } };
+    }));
+    fetch('/api/events', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ postId, userId: currentUser.id, action: 'reject', targetUserId }) }).catch(() => {});
   }, [currentUser.id]);
 
   const sharePost = useCallback((postId: string) => {
@@ -502,7 +523,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       games, createGame, voteWouldYouRather, voteNeverHaveIEver, guessTwoTruths, revealTwoTruths,
       secretAdmirers, sendSecretAdmirer, respondToAdmirer,
       wingmanSuggestions, sendWingmanSuggestion, respondToWingman,
-      respondToISawYou, joinEvent, leaveEvent,
+      respondToISawYou, joinEvent, leaveEvent, approveEventJoin, rejectEventJoin,
       stories, createStory,
       sharePost, reportContent, deletePost, blockUser,
       badges, profileStats,

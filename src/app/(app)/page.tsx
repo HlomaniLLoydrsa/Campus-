@@ -153,7 +153,7 @@ function HomeContent() {
                       <p className="text-[10px] text-gray-400 truncate">{user.course || 'Student'}</p>
                     </Link>
                     <div className="mt-2 flex justify-center">
-                      <ConnectActions userId={user.id} status={getConnectionStatus(user.id)} compact />
+                      <ConnectActions userId={user.id} status={getConnectionStatus(user.id)} iconOnly />
                     </div>
                   </div>
                 ))}

@@ -6,6 +6,7 @@ import { Bell, Settings, Search, LogOut, User as UserIcon } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
+import Logo from '@/components/Logo';
 
 export default function TopBar() {
   const { unreadNotificationCount, currentUser } = useApp();
@@ -14,8 +15,10 @@ export default function TopBar() {
   const [showMenu, setShowMenu] = useState(false);
 
   const handleLogout = () => {
-    logout();
-    router.push('/welcome');
+    if (window.confirm('Are you sure you want to log out?')) {
+      logout();
+      router.push('/welcome');
+    }
   };
 
   return (
@@ -23,9 +26,7 @@ export default function TopBar() {
       <div className="flex items-center justify-between px-4 py-3 max-w-screen-xl mx-auto">
         {/* Mobile logo */}
         <Link href="/" className="lg:hidden flex items-center gap-2">
-          <div className="w-8 h-8 rounded-xl bg-white/10 flex items-center justify-center">
-            <span className="text-white font-bold">V</span>
-          </div>
+          <Logo size={32} />
           <span className="text-lg font-bold text-white">VYBE</span>
         </Link>
 

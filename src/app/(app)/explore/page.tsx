@@ -101,22 +101,21 @@ export default function ExplorePage() {
           {/* DISCOVER (feature launcher) */}
           {tab === 'discover' && (
             <>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                 {exploreCards.map(card => {
                   const cardInner = (
                     <>
                       <div className={`absolute inset-0 bg-gradient-to-br ${card.gradient}`} />
                       {/* Subtle decorative circles for depth */}
-                      <div className="absolute -top-6 -right-6 w-24 h-24 rounded-full bg-white/10" />
-                      <div className="absolute bottom-10 -left-8 w-20 h-20 rounded-full bg-white/10" />
-                      <div className="relative h-full flex flex-col justify-between p-4">
-                        <span className="text-4xl drop-shadow-lg">{card.emoji}</span>
+                      <div className="absolute -top-6 -right-6 w-20 h-20 rounded-full bg-white/10" />
+                      <div className="absolute bottom-8 -left-6 w-16 h-16 rounded-full bg-white/10" />
+                      <div className="relative h-full flex flex-col justify-between p-3">
+                        <span className="text-2xl drop-shadow-lg">{card.emoji}</span>
                         <div>
-                          <h3 className="font-bold text-white text-sm drop-shadow">{card.title}</h3>
-                          <p className="text-white/90 text-xs mt-0.5 drop-shadow">{card.description}</p>
+                          <h3 className="font-bold text-white text-xs drop-shadow leading-tight">{card.title}</h3>
                           {card.isGame && activeGames.filter(g => g.type === card.id).length > 0 && (
-                            <span className="mt-2 inline-flex items-center gap-1 bg-white/25 backdrop-blur-sm px-2 py-0.5 rounded-full text-[10px] text-white font-medium w-fit">
-                              <Zap size={10} /> {activeGames.filter(g => g.type === card.id).length} live
+                            <span className="mt-1 inline-flex items-center gap-1 bg-white/25 backdrop-blur-sm px-1.5 py-0.5 rounded-full text-[9px] text-white font-medium w-fit">
+                              <Zap size={9} /> {activeGames.filter(g => g.type === card.id).length} live
                             </span>
                           )}
                         </div>
@@ -124,9 +123,9 @@ export default function ExplorePage() {
                     </>
                   );
                   return card.link ? (
-                    <Link key={card.id} href={card.link} className="group relative aspect-[4/5] rounded-2xl overflow-hidden cursor-pointer hover:scale-[1.02] transition-transform shadow-md">{cardInner}</Link>
+                    <Link key={card.id} href={card.link} className="group relative aspect-square rounded-2xl overflow-hidden cursor-pointer hover:scale-[1.02] transition-transform shadow-md">{cardInner}</Link>
                   ) : (
-                    <div key={card.id} onClick={() => handleCardClick(card)} className="group relative aspect-[4/5] rounded-2xl overflow-hidden cursor-pointer hover:scale-[1.02] transition-transform shadow-md">{cardInner}</div>
+                    <div key={card.id} onClick={() => handleCardClick(card)} className="group relative aspect-square rounded-2xl overflow-hidden cursor-pointer hover:scale-[1.02] transition-transform shadow-md">{cardInner}</div>
                   );
                 })}
               </div>

@@ -1,15 +1,38 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import { MessageCircle, Users, Gamepad2, Heart, Calendar, Sparkles } from 'lucide-react';
+import Logo from '@/components/Logo';
+
+// Typewriter effect that types out the full string then loops.
+function useTypewriter(full: string, speed = 90, pause = 1800) {
+  const [text, setText] = useState('');
+  useEffect(() => {
+    let i = 0;
+    let timeout: ReturnType<typeof setTimeout>;
+    const tick = () => {
+      if (i <= full.length) {
+        setText(full.slice(0, i));
+        i++;
+        timeout = setTimeout(tick, speed);
+      } else {
+        timeout = setTimeout(() => { i = 0; tick(); }, pause);
+      }
+    };
+    tick();
+    return () => clearTimeout(timeout);
+  }, [full, speed, pause]);
+  return text;
+}
 
 export default function WelcomePage() {
   const { user, isLoading } = useAuth();
   const router = useRouter();
+  const typed = useTypewriter('Your Campus. Your Community.');
 
   useEffect(() => {
     if (!isLoading && user) router.replace('/');
@@ -28,9 +51,7 @@ export default function WelcomePage() {
       {/* Nav */}
       <nav className="flex items-center justify-between px-6 py-4">
         <div className="flex items-center gap-2">
-          <div className="w-9 h-9 rounded-xl bg-white/20 backdrop-blur flex items-center justify-center">
-            <span className="text-white font-bold text-lg">V</span>
-          </div>
+          <Logo size={36} />
           <span className="text-xl font-bold text-white">VYBE</span>
         </div>
         <div className="flex items-center gap-3">
@@ -41,8 +62,8 @@ export default function WelcomePage() {
 
       {/* Hero */}
       <div className="flex-1 flex flex-col items-center justify-center px-6 text-center">
-        <h1 className="text-4xl md:text-6xl font-bold text-white max-w-2xl leading-tight">
-          Your Campus.<br />Your Community.
+        <h1 className="text-4xl md:text-6xl font-bold text-white max-w-2xl leading-tight min-h-[4.5rem] md:min-h-[9rem]">
+          {typed}<span className="animate-pulse">|</span>
         </h1>
         <p className="text-lg md:text-xl text-white/80 mt-4 max-w-lg">
           Connect with students, share moments, play games, and discover what&apos;s happening on campus.
@@ -52,21 +73,21 @@ export default function WelcomePage() {
           <Link href="/login" className="px-8 py-3 bg-white/10 text-white font-semibold rounded-xl border border-white/30 hover:bg-white/20 transition-colors">Log In</Link>
         </div>
 
-        {/* Features */}
+        {/* Features — each with its own color */}
         <div className="grid grid-cols-3 md:grid-cols-6 gap-4 mt-16 max-w-2xl">
           {[
-            { icon: MessageCircle, label: 'Chat' },
-            { icon: Users, label: 'Connect' },
-            { icon: Gamepad2, label: 'Games' },
-            { icon: Heart, label: 'Dating' },
-            { icon: Calendar, label: 'Events' },
-            { icon: Sparkles, label: 'Discover' },
+            { icon: MessageCircle, label: 'Chat', color: 'bg-sky-500' },
+            { icon: Users, label: 'Connect', color: 'bg-indigo-500' },
+            { icon: Gamepad2, label: 'Games', color: 'bg-emerald-500' },
+            { icon: Heart, label: 'Dating', color: 'bg-rose-500' },
+            { icon: Calendar, label: 'Events', color: 'bg-amber-500' },
+            { icon: Sparkles, label: 'Discover', color: 'bg-purple-500' },
           ].map(f => (
             <div key={f.label} className="flex flex-col items-center gap-2">
-              <div className="w-12 h-12 rounded-xl bg-white/10 backdrop-blur flex items-center justify-center">
+              <div className={`w-12 h-12 rounded-xl ${f.color} shadow-lg flex items-center justify-center`}>
                 <f.icon size={22} className="text-white" />
               </div>
-              <span className="text-xs text-white/70 font-medium">{f.label}</span>
+              <span className="text-xs text-white/80 font-medium">{f.label}</span>
             </div>
           ))}
         </div>

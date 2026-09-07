@@ -10,9 +10,11 @@ interface Props {
   userId: string;
   status: ConnectionStatus;
   compact?: boolean;
+  /** When true, the "none" state shows two small icon-only buttons (used in People You May Know). */
+  iconOnly?: boolean;
 }
 
-export default function ConnectActions({ userId, status, compact = false }: Props) {
+export default function ConnectActions({ userId, status, compact = false, iconOnly = false }: Props) {
   const { sendRequest, cancelRequest, acceptRequest, rejectRequest, removeFriend, getRequestForUser, getOrCreateDirectConversation } = useApp();
   const request = getRequestForUser(userId);
   const router = useRouter();
@@ -22,23 +24,45 @@ export default function ConnectActions({ userId, status, compact = false }: Prop
     if (convId) router.push('/messages');
   };
 
-  // NO CONNECTION — show both buttons directly
+  // NO CONNECTION — show both request buttons
   if (status === 'none') {
+    // Compact icon-only variant (People You May Know): two small round buttons
+    if (iconOnly) {
+      return (
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => sendRequest(userId, 'friend')}
+            title="Add friend"
+            className="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center hover:shadow-lg active:scale-95 cursor-pointer"
+          >
+            <Users size={15} />
+          </button>
+          <button
+            onClick={() => sendRequest(userId, 'relationship')}
+            title="Relationship request"
+            className="w-8 h-8 rounded-full bg-red-500 text-white flex items-center justify-center hover:shadow-lg active:scale-95 cursor-pointer"
+          >
+            <span className="text-sm leading-none">❤️</span>
+          </button>
+        </div>
+      );
+    }
+    // Default: two labelled buttons — friend = blue, relationship = red. Compact width.
     return (
-      <div className={`flex ${compact ? 'flex-col gap-1.5' : 'flex-row gap-2'}`}>
+      <div className="flex flex-row flex-wrap gap-2">
         <button
           onClick={() => sendRequest(userId, 'friend')}
-          className={`flex items-center gap-1.5 bg-campus-primary text-white rounded-xl font-medium transition-all hover:shadow-lg active:scale-95 cursor-pointer ${compact ? 'px-3 py-2 text-xs' : 'px-4 py-2.5 text-sm'}`}
+          className="flex items-center gap-1.5 bg-blue-600 text-white rounded-xl font-medium transition-all hover:shadow-lg active:scale-95 cursor-pointer px-3 py-1.5 text-xs"
         >
-          <Users size={compact ? 12 : 14} />
-          <span>Friend Request</span>
+          <Users size={13} />
+          <span>Add Friend</span>
         </button>
         <button
           onClick={() => sendRequest(userId, 'relationship')}
-          className={`flex items-center gap-1.5 bg-campus-accent text-white rounded-xl font-medium transition-all hover:shadow-lg active:scale-95 cursor-pointer ${compact ? 'px-3 py-2 text-xs' : 'px-4 py-2.5 text-sm'}`}
+          className="flex items-center gap-1.5 bg-red-500 text-white rounded-xl font-medium transition-all hover:shadow-lg active:scale-95 cursor-pointer px-3 py-1.5 text-xs"
         >
-          <Heart size={compact ? 12 : 14} />
-          <span>Relationship Request</span>
+          <Heart size={13} />
+          <span>Relationship</span>
         </button>
       </div>
     );

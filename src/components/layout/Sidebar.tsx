@@ -7,6 +7,7 @@ import { Home, Compass, Users, MessageCircle, Calendar, User, Heart, Eye, Sparkl
 import { useApp } from '@/context/AppContext';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
+import Logo from '@/components/Logo';
 
 const navItems = [
   { href: '/', icon: Home, label: 'Home' },
@@ -27,14 +28,12 @@ export default function Sidebar() {
   const router = useRouter();
   const totalUnread = conversations.reduce((sum, c) => sum + c.unreadCount, 0);
 
-  const handleLogout = () => { logout(); router.push('/welcome'); };
+  const handleLogout = () => { if (window.confirm('Are you sure you want to log out?')) { logout(); router.push('/welcome'); } };
 
   return (
     <aside className="hidden lg:flex flex-col w-64 h-screen sticky top-0 bg-campus-dark border-r border-white/10 p-4">
       <Link href="/" className="flex items-center gap-2 px-4 py-3 mb-6">
-        <div className="w-9 h-9 rounded-xl bg-white/10 flex items-center justify-center">
-          <span className="text-white font-bold text-lg">V</span>
-        </div>
+        <Logo size={36} />
         <span className="text-xl font-bold text-white">VYBE</span>
       </Link>
 

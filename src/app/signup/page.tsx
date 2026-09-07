@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
 import { Eye, EyeOff } from 'lucide-react';
+import Logo from '@/components/Logo';
 
 export default function SignupPage() {
   const { user, isLoading, signup } = useAuth();
@@ -53,9 +54,7 @@ export default function SignupPage() {
     <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4 py-8">
       <div className="w-full max-w-sm">
         <div className="text-center mb-6">
-          <div className="w-14 h-14 rounded-2xl gradient-bg flex items-center justify-center mx-auto mb-3">
-            <span className="text-white font-bold text-2xl">V</span>
-          </div>
+          <div className="mx-auto mb-3 w-fit"><Logo size={56} /></div>
           <h1 className="text-2xl font-bold text-gray-900">Create Account</h1>
           <p className="text-sm text-gray-500 mt-1">Join the VYBE community</p>
         </div>

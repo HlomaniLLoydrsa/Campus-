@@ -9,9 +9,9 @@ import { Calendar, MapPin, Users, Plus, X, Check, LogOut } from 'lucide-react';
 import { formatDate, formatTime, getCategoryColor, generateId } from '@/lib/utils';
 
 export default function EventsPage() {
-  const { posts, addPost, currentUser, joinEvent, leaveEvent, getUserById } = useApp();
+  const { posts, addPost, currentUser, joinEvent, leaveEvent, approveEventJoin, rejectEventJoin, getUserById } = useApp();
   const [showCreate, setShowCreate] = useState(false);
-  const [eventForm, setEventForm] = useState({ name: '', description: '', date: '', time: '', location: '', maxParticipants: 10, neededCount: 0, category: 'hangout', isAnonymous: false, joinType: 'direct' as 'direct' | 'approval' });
+  const [eventForm, setEventForm] = useState({ name: '', description: '', date: '', time: '', location: '', maxParticipants: 10, neededCount: 0, category: 'hangout', isAnonymous: false, joinType: 'approval' as 'direct' | 'approval' });
 
   const events = posts.filter(p => p.eventData).map(p => ({ post: p, event: p.eventData! }));
 
@@ -98,6 +98,7 @@ export default function EventsPage() {
               const isParticipant = event.participants.includes(currentUser.id);
               const isPending = event.pendingRequests.includes(currentUser.id);
               const isFull = event.currentParticipants >= event.maxParticipants;
+              const isHost = !post.isAnonymous && post.authorId === currentUser.id;
 
               return (
                 <div key={post.id} className="card overflow-hidden">
@@ -124,18 +125,43 @@ export default function EventsPage() {
                         })}
                         {event.participants.length > 4 && <div className="w-7 h-7 rounded-full border-2 border-white bg-gray-100 flex items-center justify-center text-[10px] font-bold text-gray-500">+{event.participants.length - 4}</div>}
                       </div>
-                      {isParticipant ? (
+                      {isHost ? (
+                        <span className="badge-pill bg-campus-primary/10 text-campus-primary text-xs font-semibold">You're hosting</span>
+                      ) : isParticipant ? (
                         <button onClick={() => leaveEvent(post.id)} className="btn-secondary text-sm flex items-center gap-1"><LogOut size={14} /> Leave</button>
                       ) : isPending ? (
-                        <span className="badge-pill bg-yellow-100 text-yellow-700 text-xs">Pending approval</span>
+                        <span className="badge-pill bg-yellow-100 text-yellow-700 text-xs">Awaiting approval</span>
                       ) : isFull ? (
                         <span className="badge-pill bg-gray-100 text-gray-600 text-xs">Full</span>
                       ) : (
                         <button onClick={() => joinEvent(post.id)} className="btn-primary text-sm flex items-center gap-1">
-                          <Check size={14} /> {event.joinType === 'approval' ? 'Request to Join' : 'Join Event'}
+                          <Check size={14} /> Interested
                         </button>
                       )}
                     </div>
+
+                    {/* Host-only: pending join requests to approve/decline */}
+                    {isHost && event.pendingRequests.length > 0 && (
+                      <div className="mt-3 pt-3 border-t border-gray-100">
+                        <p className="text-xs font-semibold text-gray-600 mb-2">Requests to join ({event.pendingRequests.length})</p>
+                        <div className="space-y-2">
+                          {event.pendingRequests.map(pId => {
+                            const u = getUserById(pId);
+                            if (!u) return null;
+                            return (
+                              <div key={pId} className="flex items-center gap-2">
+                                {u.avatar
+                                  ? <img src={u.avatar} alt="" className="w-8 h-8 rounded-full object-cover" />
+                                  : <div className="w-8 h-8 rounded-full bg-campus-primary/10 flex items-center justify-center text-xs font-bold text-campus-primary">{(u.name || '?')[0]}</div>}
+                                <span className="flex-1 text-sm font-medium truncate">{u.name}</span>
+                                <button onClick={() => approveEventJoin(post.id, pId)} disabled={isFull} className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-green-600 text-white hover:bg-green-700 disabled:opacity-40">Accept</button>
+                                <button onClick={() => rejectEventJoin(post.id, pId)} className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200">Decline</button>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               );
