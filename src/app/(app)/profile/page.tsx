@@ -6,9 +6,10 @@ import BottomNav from '@/components/layout/BottomNav';
 import TopBar from '@/components/layout/TopBar';
 import PostCard from '@/components/posts/PostCard';
 import { useApp } from '@/context/AppContext';
-import { Edit2, FileText, Bookmark, Award, MapPin, BookOpen, Calendar, Users, MessageCircle, Camera, X, User } from 'lucide-react';
+import { Edit2, FileText, Bookmark, Award, MapPin, BookOpen, Calendar, Users, MessageCircle, Camera, X, User, Trash2 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { useAuth } from '@/context/AuthContext';
 
 export default function ProfilePage() {
   const { currentUser, posts, connections, users, getOrCreateDirectConversation, badges } = useApp();
@@ -31,21 +32,26 @@ export default function ProfilePage() {
       <main className="flex-1 min-h-screen pb-20 lg:pb-0">
         <TopBar />
         <div className="max-w-2xl mx-auto">
-          <div className="relative h-48 md:h-56 w-full bg-gradient-to-r from-campus-dark via-campus-primary to-campus-secondary">
+          <div
+            className="relative h-48 md:h-56 w-full bg-gradient-to-r from-campus-dark via-campus-primary to-campus-secondary bg-cover bg-center"
+            style={currentUser.coverImage ? { backgroundImage: `url('${currentUser.coverImage}')` } : undefined}
+          >
             <button onClick={() => setShowEditModal(true)} className="absolute top-3 right-3 bg-white/80 backdrop-blur-sm p-2 rounded-full shadow hover:bg-white"><Camera size={16} className="text-gray-700" /></button>
           </div>
-          <div className="px-4 -mt-16 relative pb-6">
-            <div className="flex items-end gap-4">
-              <div className="relative">
-                {currentUser.avatar ? <img src={currentUser.avatar} alt="" className="w-28 h-28 rounded-full object-cover border-4 border-white shadow-lg" /> : <div className="w-28 h-28 rounded-full border-4 border-white shadow-lg bg-gray-100 flex items-center justify-center"><User size={40} className="text-gray-400" /></div>}
+          <div className="px-4 relative pb-6">
+            {/* Avatar overlaps the cover; name/handle sit BELOW so nothing is cramped */}
+            <div className="-mt-14 mb-3">
+              <div className="relative w-28 h-28">
+                {currentUser.avatar ? <img src={currentUser.avatar} alt="" className="w-28 h-28 rounded-full object-cover border-4 border-white shadow-lg bg-white" /> : <div className="w-28 h-28 rounded-full border-4 border-white shadow-lg bg-gray-100 flex items-center justify-center"><User size={40} className="text-gray-400" /></div>}
                 <button onClick={() => setShowEditModal(true)} className="absolute bottom-1 right-1 bg-campus-primary text-white p-1.5 rounded-full shadow"><Camera size={12} /></button>
               </div>
-              <div className="flex-1 pb-2">
-                <div className="flex items-center justify-between">
-                  <div><h1 className="text-xl font-bold">{currentUser.name || 'Set up your profile'}</h1>{currentUser.username && <p className="text-sm text-gray-500">@{currentUser.username}</p>}</div>
-                  <button onClick={() => setShowEditModal(true)} className="btn-primary flex items-center gap-2 text-sm"><Edit2 size={14} /> Edit Profile</button>
-                </div>
+            </div>
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <h1 className="text-xl font-bold truncate">{currentUser.name || 'Set up your profile'}</h1>
+                {currentUser.username && <p className="text-sm text-gray-500">@{currentUser.username}</p>}
               </div>
+              <button onClick={() => setShowEditModal(true)} className="btn-primary flex items-center gap-2 text-sm flex-shrink-0"><Edit2 size={14} /> Edit Profile</button>
             </div>
             {!hasProfile && <div className="mt-4 p-4 bg-campus-primary/5 border border-campus-primary/10 rounded-xl text-center"><p className="text-sm font-medium text-campus-primary">Complete your profile to get started!</p><button onClick={() => setShowEditModal(true)} className="btn-primary text-sm mt-3">Set Up Profile</button></div>}
             {currentUser.bio && <p className="text-sm text-gray-700 mt-4">{currentUser.bio}</p>}
@@ -87,10 +93,15 @@ export default function ProfilePage() {
 
 function EditProfileModal({ onClose }: { onClose: () => void }) {
   const { currentUser } = useApp();
+  const { logout } = useAuth();
+  const router = useRouter();
   const [form, setForm] = useState({ name: currentUser.name || '', username: currentUser.username || '', bio: currentUser.bio || '', course: currentUser.course || '', faculty: currentUser.faculty || '', yearOfStudy: currentUser.yearOfStudy || 1, interests: currentUser.interests.join(', '), hobbies: currentUser.hobbies.join(', ') });
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = useState(currentUser.avatar || '');
+  const [coverFile, setCoverFile] = useState<File | null>(null);
+  const [coverPreview, setCoverPreview] = useState(currentUser.coverImage || '');
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState('');
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>, type: 'avatar' | 'cover') => {
@@ -98,7 +109,10 @@ function EditProfileModal({ onClose }: { onClose: () => void }) {
     if (!file) return;
     if (file.size > 10 * 1024 * 1024) { setError('Image must be less than 10MB'); return; }
     const reader = new FileReader();
-    reader.onload = (ev) => { setAvatarFile(file); setAvatarPreview(ev.target?.result as string); };
+    reader.onload = (ev) => {
+      if (type === 'avatar') { setAvatarFile(file); setAvatarPreview(ev.target?.result as string); }
+      else { setCoverFile(file); setCoverPreview(ev.target?.result as string); }
+    };
     reader.readAsDataURL(file);
   };
 
@@ -113,8 +127,9 @@ function EditProfileModal({ onClose }: { onClose: () => void }) {
     if (!form.username.trim()) { setError('Username is required'); return; }
     setSaving(true);
     let avatarUrl = currentUser.avatar || '';
-    const coverUrl = ''; // cover is a gradient, no image
+    let coverUrl = currentUser.coverImage || '';
     if (avatarFile) { const u = await uploadFile(avatarFile); if (u) avatarUrl = u; }
+    if (coverFile) { const u = await uploadFile(coverFile); if (u) coverUrl = u; }
     try {
       const res = await fetch(`/api/users/${currentUser.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: form.name.trim(), username: form.username.trim(), bio: form.bio.trim(), avatar: avatarUrl, coverImage: coverUrl, course: form.course.trim(), faculty: form.faculty.trim(), yearOfStudy: Number(form.yearOfStudy) || 1, interests: form.interests.split(',').map(s => s.trim()).filter(Boolean), hobbies: form.hobbies.split(',').map(s => s.trim()).filter(Boolean) }) });
       if (!res.ok) { const d = await res.json(); setError(d.error || 'Failed to save'); setSaving(false); return; }
@@ -122,6 +137,17 @@ function EditProfileModal({ onClose }: { onClose: () => void }) {
       if (stored) { const u = JSON.parse(stored); Object.assign(u, { name: form.name.trim(), username: form.username.trim(), avatar: avatarUrl, coverImage: coverUrl, bio: form.bio.trim(), course: form.course.trim(), faculty: form.faculty.trim(), yearOfStudy: Number(form.yearOfStudy), interests: form.interests.split(',').map((s: string) => s.trim()).filter(Boolean), hobbies: form.hobbies.split(',').map((s: string) => s.trim()).filter(Boolean) }); localStorage.setItem('campus_user', JSON.stringify(u)); }
       window.location.reload();
     } catch { setError('Network error'); setSaving(false); }
+  };
+
+  const handleDeleteAccount = async () => {
+    if (!window.confirm('Delete your account permanently? This removes your profile, posts, and messages and cannot be undone.')) return;
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/users/${currentUser.id}`, { method: 'DELETE' });
+      if (!res.ok) { setError('Could not delete account'); setDeleting(false); return; }
+      logout();
+      router.push('/welcome');
+    } catch { setError('Network error'); setDeleting(false); }
   };
 
   return (
@@ -138,8 +164,12 @@ function EditProfileModal({ onClose }: { onClose: () => void }) {
             </div>
           </div>
           <div>
-            <label className="text-xs font-medium text-gray-600 block mb-2">Cover</label>
-            <div className="w-full h-24 rounded-xl bg-gradient-to-r from-campus-dark via-campus-primary to-campus-secondary" />
+            <label className="text-xs font-medium text-gray-600 block mb-2">Cover Photo</label>
+            <div
+              className="w-full h-24 rounded-xl bg-gradient-to-r from-campus-dark via-campus-primary to-campus-secondary bg-cover bg-center mb-2"
+              style={coverPreview ? { backgroundImage: `url('${coverPreview}')` } : undefined}
+            />
+            <label className="btn-secondary text-sm cursor-pointer inline-block">{coverPreview ? 'Change Cover' : 'Choose Cover'}<input type="file" accept="image/*" onChange={(e) => handleFileSelect(e, 'cover')} className="hidden" /></label>
           </div>
           <div className="grid grid-cols-2 gap-3"><div><label className="text-xs font-medium text-gray-600 block mb-1">Name *</label><input type="text" value={form.name} onChange={(e) => setForm(p => ({ ...p, name: e.target.value }))} className="input-field" placeholder="Your name" /></div><div><label className="text-xs font-medium text-gray-600 block mb-1">Username *</label><input type="text" value={form.username} onChange={(e) => setForm(p => ({ ...p, username: e.target.value }))} className="input-field" placeholder="username" /></div></div>
           <div><label className="text-xs font-medium text-gray-600 block mb-1">Bio</label><textarea value={form.bio} onChange={(e) => setForm(p => ({ ...p, bio: e.target.value }))} rows={2} className="input-field resize-none" placeholder="About you..." /></div>
@@ -148,6 +178,14 @@ function EditProfileModal({ onClose }: { onClose: () => void }) {
           <div><label className="text-xs font-medium text-gray-600 block mb-1">Interests (comma-separated)</label><input type="text" value={form.interests} onChange={(e) => setForm(p => ({ ...p, interests: e.target.value }))} className="input-field" placeholder="Tech, Music, Sports" /></div>
           <div><label className="text-xs font-medium text-gray-600 block mb-1">Hobbies (comma-separated)</label><input type="text" value={form.hobbies} onChange={(e) => setForm(p => ({ ...p, hobbies: e.target.value }))} className="input-field" placeholder="Coding, Basketball" /></div>
           <button onClick={handleSave} disabled={saving} className="btn-primary w-full disabled:opacity-50">{saving ? 'Saving...' : 'Save Profile'}</button>
+
+          {/* Danger zone */}
+          <div className="pt-4 mt-2 border-t border-gray-100">
+            <p className="text-xs font-semibold text-gray-500 mb-2">Danger Zone</p>
+            <button onClick={handleDeleteAccount} disabled={deleting} className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-red-200 text-red-600 font-medium text-sm hover:bg-red-50 disabled:opacity-50">
+              <Trash2 size={15} /> {deleting ? 'Deleting...' : 'Delete Account'}
+            </button>
+          </div>
         </div>
       </div>
     </div>

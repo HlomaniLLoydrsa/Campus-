@@ -5,6 +5,9 @@ import { Image as ImageIcon, X, Lock, Eye } from 'lucide-react';
 import { PostType } from '@/types';
 import { useApp } from '@/context/AppContext';
 import { generateId } from '@/lib/utils';
+import { resizeImage } from '@/lib/image';
+
+const MAX_IMAGES = 6;
 
 const postTypes: { type: PostType; label: string; icon: string; color: string }[] = [
   { type: 'normal', label: 'Post', icon: '✍️', color: 'bg-gray-100 text-gray-700' },
@@ -20,42 +23,53 @@ export default function CreatePost({ defaultType = 'normal', onClose }: { defaul
   const [content, setContent] = useState('');
   const [selectedType, setSelectedType] = useState<PostType>(defaultType);
   const [isAnonymous, setIsAnonymous] = useState(defaultType === 'confession');
-  const [imageFile, setImageFile] = useState<File | null>(null);
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [imageFiles, setImageFiles] = useState<File[]>([]);
+  const [imagePreviews, setImagePreviews] = useState<string[]>([]);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (file.size > 10 * 1024 * 1024) { alert('Image must be less than 10MB'); return; }
-    setImageFile(file);
-    const reader = new FileReader();
-    reader.onload = (ev) => setImagePreview(ev.target?.result as string);
-    reader.readAsDataURL(file);
+  const handleImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+    const room = MAX_IMAGES - imageFiles.length;
+    const toAdd = files.slice(0, room);
+    // Resize each image before storing so uploads are small and images fit nicely
+    const resized: File[] = [];
+    const previews: string[] = [];
+    for (const f of toAdd) {
+      if (f.size > 15 * 1024 * 1024) { alert('Each image must be less than 15MB'); continue; }
+      const r = await resizeImage(f);
+      resized.push(r);
+      previews.push(URL.createObjectURL(r));
+    }
+    setImageFiles(prev => [...prev, ...resized]);
+    setImagePreviews(prev => [...prev, ...previews]);
+    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
-  const removeImage = () => {
-    setImageFile(null);
-    setImagePreview(null);
+  const removeImageAt = (idx: number) => {
+    setImageFiles(prev => prev.filter((_, i) => i !== idx));
+    setImagePreviews(prev => prev.filter((_, i) => i !== idx));
+  };
+
+  const removeAllImages = () => {
+    setImageFiles([]);
+    setImagePreviews([]);
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
   const handleSubmit = async () => {
-    if (!content.trim() && !imageFile) return;
+    if (!content.trim() && imageFiles.length === 0) return;
     setUploading(true);
 
-    let imageUrl: string | undefined;
-    if (imageFile) {
+    const imageUrls: string[] = [];
+    for (const file of imageFiles) {
       const formData = new FormData();
-      formData.append('file', imageFile);
+      formData.append('file', file);
       try {
         const res = await fetch('/api/upload', { method: 'POST', body: formData });
-        if (res.ok) {
-          const data = await res.json();
-          imageUrl = data.url;
-        }
-      } catch { /* continue without image */ }
+        if (res.ok) { const data = await res.json(); if (data.url) imageUrls.push(data.url); }
+      } catch { /* continue */ }
     }
 
     const newPost = {
@@ -64,7 +78,7 @@ export default function CreatePost({ defaultType = 'normal', onClose }: { defaul
       authorId: isAnonymous ? null : currentUser.id,
       isAnonymous,
       content: content.trim(),
-      images: imageUrl ? [imageUrl] : [],
+      images: imageUrls,
       likes: 0,
       likedBy: [] as string[],
       comments: [],
@@ -78,7 +92,7 @@ export default function CreatePost({ defaultType = 'normal', onClose }: { defaul
     setContent('');
     setSelectedType('normal');
     setIsAnonymous(false);
-    removeImage();
+    removeAllImages();
     setUploading(false);
     onClose?.();
   };
@@ -120,21 +134,26 @@ export default function CreatePost({ defaultType = 'normal', onClose }: { defaul
         </div>
       </div>
 
-      {/* Image preview */}
-      {imagePreview && (
-        <div className="relative mt-3 rounded-xl overflow-hidden border border-gray-100 bg-gray-100 flex items-center justify-center max-h-80">
-          <img src={imagePreview} alt="Upload preview" className="w-full h-auto max-h-80 object-contain" />
-          <button onClick={removeImage} className="absolute top-2 right-2 bg-black/60 text-white p-1 rounded-full hover:bg-black/80"><X size={14} /></button>
+      {/* Image previews (multi) */}
+      {imagePreviews.length > 0 && (
+        <div className={`mt-3 grid gap-2 ${imagePreviews.length === 1 ? 'grid-cols-1' : 'grid-cols-3'}`}>
+          {imagePreviews.map((src, idx) => (
+            <div key={idx} className="relative rounded-xl overflow-hidden border border-gray-100 bg-gray-100 aspect-square">
+              <img src={src} alt="" className="w-full h-full object-cover" />
+              <button onClick={() => removeImageAt(idx)} className="absolute top-1 right-1 bg-black/60 text-white p-1 rounded-full hover:bg-black/80"><X size={12} /></button>
+            </div>
+          ))}
         </div>
       )}
 
       {/* Actions */}
       <div className="flex items-center justify-between pt-3 mt-3 border-t border-gray-100">
         <div className="flex items-center gap-2">
-          <input type="file" ref={fileInputRef} onChange={handleImageSelect} accept="image/*" className="hidden" />
-          <button onClick={() => fileInputRef.current?.click()} className="p-2 rounded-lg hover:bg-gray-100 text-gray-500 transition-colors">
+          <input type="file" ref={fileInputRef} onChange={handleImageSelect} accept="image/*" multiple className="hidden" />
+          <button onClick={() => fileInputRef.current?.click()} disabled={imageFiles.length >= MAX_IMAGES} className="p-2 rounded-lg hover:bg-gray-100 text-gray-500 transition-colors disabled:opacity-40" title={imageFiles.length >= MAX_IMAGES ? 'Max 6 images' : 'Add photos'}>
             <ImageIcon size={18} />
           </button>
+          {imageFiles.length > 0 && <span className="text-xs text-gray-400">{imageFiles.length}/{MAX_IMAGES}</span>}
           {selectedType !== 'confession' && (
             <button onClick={() => setIsAnonymous(!isAnonymous)} className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium transition-all ${isAnonymous ? 'bg-purple-100 text-purple-700' : 'text-gray-500 hover:bg-gray-100'}`}>
               {isAnonymous ? <Lock size={14} /> : <Eye size={14} />}
@@ -142,7 +161,7 @@ export default function CreatePost({ defaultType = 'normal', onClose }: { defaul
             </button>
           )}
         </div>
-        <button onClick={handleSubmit} disabled={(!content.trim() && !imageFile) || uploading} className="btn-primary text-sm disabled:opacity-50 disabled:cursor-not-allowed">
+        <button onClick={handleSubmit} disabled={(!content.trim() && imageFiles.length === 0) || uploading} className="btn-primary text-sm disabled:opacity-50 disabled:cursor-not-allowed">
           {uploading ? 'Posting...' : 'Post'}
         </button>
       </div>

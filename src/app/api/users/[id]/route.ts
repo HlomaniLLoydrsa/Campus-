@@ -70,3 +70,24 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     wingmanEnabled: !!updated.wingmanEnabled,
   });
 }
+
+// DELETE /api/users/:id — permanently delete the account and associated data
+export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const db = await getDb();
+
+  const user = await db.prepare('SELECT id FROM users WHERE id = ?').get(id) as any;
+  if (!user) return NextResponse.json({ error: 'User not found' }, { status: 404 });
+
+  // Remove the user's data across tables (best-effort; ignore tables that may not have rows)
+  await db.prepare('DELETE FROM users WHERE id = ?').run(id);
+  await db.prepare('DELETE FROM posts WHERE authorId = ?').run(id);
+  await db.prepare('DELETE FROM comments WHERE authorId = ?').run(id);
+  await db.prepare('DELETE FROM notifications WHERE userId = ? OR fromUserId = ?').run(id, id);
+  await db.prepare('DELETE FROM connections WHERE userId = ? OR connectedUserId = ?').run(id, id);
+  await db.prepare('DELETE FROM connection_requests WHERE fromUserId = ? OR toUserId = ?').run(id, id);
+  await db.prepare('DELETE FROM messages WHERE senderId = ?').run(id);
+  await db.prepare('DELETE FROM stories WHERE userId = ?').run(id);
+
+  return NextResponse.json({ success: true });
+}

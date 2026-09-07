@@ -20,6 +20,7 @@ export default function PostCard({ post }: Props) {
   const [reported, setReported] = useState(false);
   const [showShare, setShowShare] = useState(false);
   const [sentTo, setSentTo] = useState<string[]>([]);
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
 
   const myFriends = (connections[currentUser.id] || []).map(id => getUserById(id)).filter(Boolean) as NonNullable<ReturnType<typeof getUserById>>[];
 
@@ -127,16 +128,9 @@ export default function PostCard({ post }: Props) {
       {/* Content */}
       <p className="text-gray-800 text-sm leading-relaxed mb-3 whitespace-pre-wrap">{post.content}</p>
 
-      {/* Images */}
+      {/* Images — Facebook-style mosaic */}
       {post.images && post.images.length > 0 && post.images[0] && (
-        <div className="mb-3 rounded-xl overflow-hidden bg-gray-100 flex items-center justify-center max-h-[70vh]">
-          <img
-            src={post.images[0]}
-            alt="Post image"
-            className="w-full h-auto max-h-[70vh] object-contain"
-            onError={(e) => { const el = e.currentTarget.parentElement; if (el) el.style.display = 'none'; }}
-          />
-        </div>
+        <PostImages images={post.images.filter(Boolean)} onOpen={(i) => setLightboxIndex(i)} />
       )}
 
       {/* Event card */}
@@ -235,6 +229,11 @@ export default function PostCard({ post }: Props) {
         </div>
       )}
 
+      {/* Image lightbox */}
+      {lightboxIndex !== null && post.images && (
+        <Lightbox images={post.images.filter(Boolean)} index={lightboxIndex} onClose={() => setLightboxIndex(null)} onNav={setLightboxIndex} />
+      )}
+
       {/* Share to friends modal */}
       {showShare && (
         <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={() => setShowShare(false)}>
@@ -267,6 +266,76 @@ export default function PostCard({ post }: Props) {
             )}
           </div>
         </div>
+      )}
+    </div>
+  );
+}
+
+// Facebook-style image mosaic: 1 big, 2 side-by-side, 3-4 grid, 5+ shows "+N more"
+function PostImages({ images, onOpen }: { images: string[]; onOpen: (i: number) => void }) {
+  const count = images.length;
+  const cellClass = 'relative overflow-hidden bg-gray-100 cursor-pointer';
+  const imgClass = 'w-full h-full object-cover hover:opacity-95 transition-opacity';
+
+  if (count === 1) {
+    return (
+      <div className="mb-3 rounded-xl overflow-hidden bg-gray-100 max-h-[70vh] flex items-center justify-center">
+        <img src={images[0]} alt="" onClick={() => onOpen(0)} className="w-full h-auto max-h-[70vh] object-contain cursor-pointer" />
+      </div>
+    );
+  }
+
+  if (count === 2) {
+    return (
+      <div className="mb-3 grid grid-cols-2 gap-1 rounded-xl overflow-hidden h-64">
+        {images.map((src, i) => (
+          <div key={i} className={cellClass} onClick={() => onOpen(i)}><img src={src} alt="" className={imgClass} /></div>
+        ))}
+      </div>
+    );
+  }
+
+  if (count === 3) {
+    return (
+      <div className="mb-3 grid grid-cols-2 grid-rows-2 gap-1 rounded-xl overflow-hidden h-72">
+        <div className={`${cellClass} row-span-2`} onClick={() => onOpen(0)}><img src={images[0]} alt="" className={imgClass} /></div>
+        <div className={cellClass} onClick={() => onOpen(1)}><img src={images[1]} alt="" className={imgClass} /></div>
+        <div className={cellClass} onClick={() => onOpen(2)}><img src={images[2]} alt="" className={imgClass} /></div>
+      </div>
+    );
+  }
+
+  // 4+ : 2x2 grid, last tile shows "+N more" if there are extras
+  const shown = images.slice(0, 4);
+  const extra = count - 4;
+  return (
+    <div className="mb-3 grid grid-cols-2 grid-rows-2 gap-1 rounded-xl overflow-hidden h-72">
+      {shown.map((src, i) => (
+        <div key={i} className={cellClass} onClick={() => onOpen(i)}>
+          <img src={src} alt="" className={imgClass} />
+          {i === 3 && extra > 0 && (
+            <div className="absolute inset-0 bg-black/50 flex items-center justify-center text-white text-2xl font-bold">+{extra}</div>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// Fullscreen image viewer with prev/next
+function Lightbox({ images, index, onClose, onNav }: { images: string[]; index: number; onClose: () => void; onNav: (i: number) => void }) {
+  const prev = () => onNav((index - 1 + images.length) % images.length);
+  const next = () => onNav((index + 1) % images.length);
+  return (
+    <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center" onClick={onClose}>
+      <button onClick={onClose} className="absolute top-4 right-4 text-white p-2"><X size={26} /></button>
+      <img src={images[index]} alt="" className="max-h-[85vh] max-w-[90vw] object-contain" onClick={(e) => e.stopPropagation()} />
+      {images.length > 1 && (
+        <>
+          <button onClick={(e) => { e.stopPropagation(); prev(); }} className="absolute left-3 top-1/2 -translate-y-1/2 text-white bg-white/10 rounded-full p-2 text-xl">‹</button>
+          <button onClick={(e) => { e.stopPropagation(); next(); }} className="absolute right-3 top-1/2 -translate-y-1/2 text-white bg-white/10 rounded-full p-2 text-xl">›</button>
+          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-white/80 text-sm">{index + 1} / {images.length}</div>
+        </>
       )}
     </div>
   );

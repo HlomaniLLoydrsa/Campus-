@@ -74,37 +74,43 @@ function HomeContent() {
       <main className="flex-1 min-h-screen pb-20 lg:pb-0">
         <TopBar />
         <div className="max-w-2xl mx-auto px-4 py-4 space-y-4">
-          {/* Stories Row */}
-          <div className="flex gap-3 overflow-x-auto scrollbar-hide pb-2">
-            {/* My story */}
-            <button onClick={() => myStories.length > 0 ? setViewingStoryUser(currentUser.id) : setShowStoryCreate(true)} className="flex-shrink-0 flex flex-col items-center gap-1">
-              <div className={`relative w-16 h-16 rounded-full p-[2px] ${myStories.length > 0 ? 'bg-gradient-to-br from-campus-primary to-campus-accent' : 'bg-gray-200'}`}>
-                {currentUser.avatar ? (
-                  <img src={currentUser.avatar} alt="Your story" className="w-full h-full rounded-full object-cover border-2 border-white" />
-                ) : (
-                  <div className="w-full h-full rounded-full bg-gray-100 border-2 border-white flex items-center justify-center"><span className="text-gray-400 font-bold text-lg">{(currentUser.name || '?')[0]}</span></div>
-                )}
-                <button onClick={(e) => { e.stopPropagation(); setShowStoryCreate(true); }} className="absolute bottom-0 right-0 w-5 h-5 bg-campus-primary text-white rounded-full flex items-center justify-center border-2 border-white">
-                  <Plus size={10} strokeWidth={3} />
-                </button>
+          {/* Stories Row — Instagram-style tiles */}
+          <div className="flex gap-3 overflow-x-auto scrollbar-hide pb-2 px-1">
+            {/* My story — tall tile with avatar + add button */}
+            <button onClick={() => myStories.length > 0 ? setViewingStoryUser(currentUser.id) : setShowStoryCreate(true)} className="flex-shrink-0 relative w-24 h-40 rounded-2xl overflow-hidden shadow-sm border border-gray-100 group">
+              {currentUser.avatar ? (
+                <img src={currentUser.avatar} alt="Your story" className="absolute inset-0 w-full h-full object-cover" />
+              ) : (
+                <div className="absolute inset-0 bg-gradient-to-br from-campus-primary to-campus-accent" />
+              )}
+              <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/70 to-transparent" />
+              <div className="absolute top-2 left-1/2 -translate-x-1/2 w-9 h-9 rounded-full bg-campus-primary text-white flex items-center justify-center border-2 border-white shadow">
+                <Plus size={16} strokeWidth={3} />
               </div>
-              <span className="text-[10px] font-medium text-gray-600">Your story</span>
+              <span className="absolute bottom-2 left-0 right-0 text-center text-[11px] font-semibold text-white drop-shadow">Your story</span>
             </button>
 
-            {/* Other users' stories */}
+            {/* Other users' stories — tall tiles with ringed avatar */}
             {otherUserIds.map(uid => {
               const user = getUserById(uid);
               if (!user) return null;
+              const preview = (storiesByUser[uid] || [])[0];
               return (
-                <button key={uid} onClick={() => setViewingStoryUser(uid)} className="flex-shrink-0 flex flex-col items-center gap-1">
-                  <div className="w-16 h-16 rounded-full bg-gradient-to-br from-campus-accent to-campus-primary p-[2px]">
+                <button key={uid} onClick={() => setViewingStoryUser(uid)} className="flex-shrink-0 relative w-24 h-40 rounded-2xl overflow-hidden shadow-sm border border-gray-100">
+                  {preview?.image ? (
+                    <img src={preview.image} alt="" className="absolute inset-0 w-full h-full object-cover" />
+                  ) : (
+                    <div className="absolute inset-0" style={{ backgroundColor: preview?.backgroundColor || '#1A3F75' }} />
+                  )}
+                  <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/70 to-transparent" />
+                  <div className="absolute top-2 left-2 w-9 h-9 rounded-full p-[2px] bg-gradient-to-br from-campus-accent to-campus-primary">
                     {user.avatar ? (
                       <img src={user.avatar} alt={user.name} className="w-full h-full rounded-full object-cover border-2 border-white" />
                     ) : (
-                      <div className="w-full h-full rounded-full bg-gray-100 border-2 border-white flex items-center justify-center"><span className="text-gray-400 font-bold">{(user.name || '?')[0]}</span></div>
+                      <div className="w-full h-full rounded-full bg-gray-100 border-2 border-white flex items-center justify-center text-xs font-bold text-gray-500">{(user.name || '?')[0]}</div>
                     )}
                   </div>
-                  <span className="text-[10px] font-medium text-gray-600 truncate w-16 text-center">{user.name.split(' ')[0]}</span>
+                  <span className="absolute bottom-2 left-1 right-1 text-center text-[11px] font-semibold text-white truncate drop-shadow">{user.name.split(' ')[0]}</span>
                 </button>
               );
             })}
