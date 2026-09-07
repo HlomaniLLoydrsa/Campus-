@@ -3,25 +3,12 @@
 @tailwind utilities;
 
 @layer base {
+  /* App pages use a solid light background color (no picture).
+     The background picture lives only on the welcome + login pages,
+     set inline in those page components. */
   body {
     @apply text-gray-900 antialiased;
     background-color: #EAF2FA;
-  }
-
-  /* Blurred fixed background layer (sits behind all content) */
-  body::before {
-    content: '';
-    position: fixed;
-    inset: 0;
-    z-index: -1;
-    background-image: url('/images/app-bg.jpg');
-    background-size: cover;
-    background-position: center;
-    background-repeat: no-repeat;
-    filter: blur(8px);
-    transform: scale(1.1); /* hide blurred edges */
-    /* soft ice-blue veil so content stays readable while keeping the palette */
-    box-shadow: inset 0 0 0 2000px rgba(234, 242, 250, 0.6);
   }
 }
 

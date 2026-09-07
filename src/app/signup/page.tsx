@@ -54,10 +54,10 @@ export default function SignupPage() {
       <div className="w-full max-w-sm">
         <div className="text-center mb-6">
           <div className="w-14 h-14 rounded-2xl gradient-bg flex items-center justify-center mx-auto mb-3">
-            <span className="text-white font-bold text-2xl">C</span>
+            <span className="text-white font-bold text-2xl">V</span>
           </div>
           <h1 className="text-2xl font-bold text-gray-900">Create Account</h1>
-          <p className="text-sm text-gray-500 mt-1">Join the campus community</p>
+          <p className="text-sm text-gray-500 mt-1">Join the VYBE community</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-3">

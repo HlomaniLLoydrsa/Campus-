@@ -44,10 +44,10 @@ export default function LoginPage() {
         {/* Logo */}
         <div className="text-center mb-8">
           <div className="w-14 h-14 rounded-2xl gradient-bg flex items-center justify-center mx-auto mb-3">
-            <span className="text-white font-bold text-2xl">C</span>
+            <span className="text-white font-bold text-2xl">V</span>
           </div>
           <h1 className="text-2xl font-bold text-gray-900">Welcome back</h1>
-          <p className="text-sm text-gray-500 mt-1">Log in to your Campus account</p>
+          <p className="text-sm text-gray-500 mt-1">Log in to your VYBE account</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">

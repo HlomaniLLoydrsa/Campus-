@@ -45,7 +45,8 @@ export default function PostCard({ post }: Props) {
     if (convId) {
       const authorName = post.isAnonymous ? 'Anonymous' : (author?.name || 'Someone');
       const preview = post.content.length > 80 ? post.content.slice(0, 80) + '…' : post.content;
-      sendMessage(convId, `📢 Shared a post by ${authorName}: "${preview}"`);
+      // Embed the post id so the inbox can render this as a clickable shared-post card.
+      sendMessage(convId, `[shared-post:${post.id}] 📢 Shared a post by ${authorName}: "${preview}"`);
       sharePost(post.id);
       setSentTo(prev => [...prev, friendId]);
     }
@@ -140,7 +141,7 @@ export default function PostCard({ post }: Props) {
 
       {/* Event card */}
       {post.eventData && (
-        <Link href={`/events/${post.eventData.id}`} className="block mb-3 p-4 bg-gradient-to-r from-campus-primary/5 to-campus-accent/5 rounded-xl border border-campus-primary/10">
+        <Link href="/events" className="block mb-3 p-4 bg-gradient-to-r from-campus-primary/5 to-campus-accent/5 rounded-xl border border-campus-primary/10">
           <div className="flex items-center justify-between">
             <div>
               <h4 className="font-semibold text-sm">{post.eventData.name}</h4>

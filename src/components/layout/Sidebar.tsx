@@ -33,9 +33,9 @@ export default function Sidebar() {
     <aside className="hidden lg:flex flex-col w-64 h-screen sticky top-0 bg-campus-dark border-r border-white/10 p-4">
       <Link href="/" className="flex items-center gap-2 px-4 py-3 mb-6">
         <div className="w-9 h-9 rounded-xl bg-white/10 flex items-center justify-center">
-          <span className="text-white font-bold text-lg">C</span>
+          <span className="text-white font-bold text-lg">V</span>
         </div>
-        <span className="text-xl font-bold text-white">Campus</span>
+        <span className="text-xl font-bold text-white">VYBE</span>
       </Link>
 
       <nav className="flex-1 space-y-1">

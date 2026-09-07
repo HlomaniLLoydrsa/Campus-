@@ -24,16 +24,16 @@ export default function TopBar() {
         {/* Mobile logo */}
         <Link href="/" className="lg:hidden flex items-center gap-2">
           <div className="w-8 h-8 rounded-xl bg-white/10 flex items-center justify-center">
-            <span className="text-white font-bold">C</span>
+            <span className="text-white font-bold">V</span>
           </div>
-          <span className="text-lg font-bold text-white">Campus</span>
+          <span className="text-lg font-bold text-white">VYBE</span>
         </Link>
 
         {/* Search bar - desktop */}
         <div className="hidden md:flex flex-1 max-w-md mx-4">
           <div className="relative w-full">
             <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-blue-200/70" />
-            <input type="text" placeholder="Search campus..." className="w-full pl-10 pr-4 py-2.5 bg-white/10 border border-white/15 rounded-xl text-sm text-white placeholder-blue-200/60 focus:outline-none focus:ring-2 focus:ring-white/20 transition-all" />
+            <input type="text" placeholder="Search VYBE..." className="w-full pl-10 pr-4 py-2.5 bg-white/10 border border-white/15 rounded-xl text-sm text-white placeholder-blue-200/60 focus:outline-none focus:ring-2 focus:ring-white/20 transition-all" />
           </div>
         </div>
 

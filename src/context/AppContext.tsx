@@ -63,6 +63,20 @@ interface AppContextType {
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
+// Server messages use `createdAt`; the UI renders `timestamp`. Normalize so dates never show "Invalid Date".
+function normalizeConversations(convs: any[]): Conversation[] {
+  return (convs || []).map((c: any) => {
+    const messages = (c.messages || []).map((m: any) => ({
+      ...m,
+      timestamp: m.timestamp || m.createdAt || new Date().toISOString(),
+    }));
+    const lastMessage = c.lastMessage
+      ? { ...c.lastMessage, timestamp: c.lastMessage.timestamp || c.lastMessage.createdAt || new Date().toISOString() }
+      : (messages.length > 0 ? messages[messages.length - 1] : undefined);
+    return { ...c, messages, lastMessage };
+  });
+}
+
 const EMPTY_USER: User = {
   id: '', name: '', username: '', avatar: '', bio: '', course: '', faculty: '', yearOfStudy: 1,
   interests: [], hobbies: [], connectionsCount: 0, postsCount: 0, badges: [], joinedAt: '', isOnline: true,
@@ -134,7 +148,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       }
       if (reqsRes.ok) setConnectionRequests(await reqsRes.json());
       if (convsRes.ok) {
-        const fresh: Conversation[] = await convsRes.json();
+        const fresh: Conversation[] = normalizeConversations(await convsRes.json());
         setConversations(prev => {
           // Merge: prefer server data but keep any optimistic (temp) conversations not yet on server
           const serverIds = new Set(fresh.map(c => c.id));
@@ -166,7 +180,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       if (notifsRes.ok) setNotifications(await notifsRes.json());
       if (postsRes.ok) setPosts(await postsRes.json());
       if (gamesRes.ok) setGames(await gamesRes.json());
-      if (convsRes.ok) setConversations(await convsRes.json());
+      if (convsRes.ok) setConversations(normalizeConversations(await convsRes.json()));
       if (storiesRes.ok) setStories(await storiesRes.json());
       if (saRes.ok) setSecretAdmirers(await saRes.json());
       if (wmRes.ok) setWingmanSuggestions(await wmRes.json());

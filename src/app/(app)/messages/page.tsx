@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect, Suspense } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import Sidebar from '@/components/layout/Sidebar';
 import BottomNav from '@/components/layout/BottomNav';
 import TopBar from '@/components/layout/TopBar';
@@ -21,6 +21,7 @@ export default function MessagesPage() {
 function MessagesContent() {
   const { currentUser, conversations, sendMessage, getUserById, isConnected, markConversationRead, createConversation, connections, users } = useApp();
   const searchParams = useSearchParams();
+  const router = useRouter();
   const [selectedConv, setSelectedConv] = useState<string | null>(null);
   const [messageText, setMessageText] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
@@ -163,7 +164,21 @@ function MessagesContent() {
                           {!isOwn && <Avatar src={sender?.avatar} name={sender?.name} size={28} />}
                           <div className={`px-4 py-2.5 rounded-2xl ${isOwn ? 'bg-campus-primary text-white rounded-br-md' : 'bg-gray-100 text-gray-800 rounded-bl-md'}`}>
                             {!isOwn && selectedConversation.type !== 'direct' && <p className="text-[10px] font-semibold mb-0.5 opacity-70">{sender?.name}</p>}
-                            <p className="text-sm">{msg.content}</p>
+                            {(() => {
+                              const sharedMatch = msg.content.match(/^\[shared-post:([^\]]+)\]\s*([\s\S]*)$/);
+                              if (sharedMatch) {
+                                const [, postId, label] = sharedMatch;
+                                return (
+                                  <button
+                                    onClick={() => router.push(`/?post=${postId}`)}
+                                    className={`text-sm text-left underline decoration-dotted ${isOwn ? 'text-white' : 'text-campus-primary'}`}
+                                  >
+                                    {label || 'View shared post'}
+                                  </button>
+                                );
+                              }
+                              return <p className="text-sm">{msg.content}</p>;
+                            })()}
                             <p className={`text-[10px] mt-1 ${isOwn ? 'text-white/60' : 'text-gray-400'}`}>{formatTimeAgo(msg.timestamp)}</p>
                           </div>
                         </div>
