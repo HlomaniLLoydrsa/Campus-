@@ -75,6 +75,8 @@ export interface Post {
   id: string;
   type: PostType;
   authorId: string | null;
+  /** Real author id, kept private (used for ownership checks even on anonymous posts). */
+  ownerId?: string | null;
   author?: User;
   isAnonymous: boolean;
   content: string;

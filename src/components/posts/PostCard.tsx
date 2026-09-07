@@ -27,7 +27,8 @@ export default function PostCard({ post }: Props) {
   const author = post.isAnonymous ? null : getUserById(post.authorId || '');
   const isLiked = post.likedBy.includes(currentUser.id);
   const isSaved = post.savedBy.includes(currentUser.id);
-  const isOwnPost = !post.isAnonymous && post.authorId === currentUser.id;
+  // The real owner (works even for anonymous posts) — used to show manage/delete controls.
+  const isOwnPost = (post.ownerId || post.authorId) === currentUser.id && !!currentUser.id;
   const postStyle = getPostTypeStyle(post.type);
 
   const handleComment = () => {

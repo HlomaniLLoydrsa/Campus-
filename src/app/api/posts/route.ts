@@ -17,6 +17,7 @@ export async function GET() {
   return NextResponse.json(posts.map((p: any) => ({
     ...p,
     isAnonymous: !!p.isAnonymous,
+    ownerId: p.ownerId || p.authorId || null,
     images: JSON.parse(p.images || '[]'),
     likedBy: JSON.parse(p.likedBy || '[]'),
     savedBy: JSON.parse(p.savedBy || '[]'),
@@ -37,8 +38,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Post must have content or an image' }, { status: 400 });
   }
 
-  await db.prepare('INSERT INTO posts (id, type, authorId, isAnonymous, content, images, likes, likedBy, savedBy, createdAt, eventData, iSawYouData, taggedUserId) VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?)').run(
-    id, body.type || 'normal', body.authorId || null, body.isAnonymous ? 1 : 0,
+  // ownerId is the real author, kept private (never shown for anonymous posts) so the owner can manage the post.
+  const ownerId = body.ownerId || body.authorId || null;
+
+  await db.prepare('INSERT INTO posts (id, type, authorId, ownerId, isAnonymous, content, images, likes, likedBy, savedBy, createdAt, eventData, iSawYouData, taggedUserId) VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?)').run(
+    id, body.type || 'normal', body.authorId || null, ownerId, body.isAnonymous ? 1 : 0,
     body.content || '', JSON.stringify(body.images || []), '[]', '[]',
     body.createdAt || new Date().toISOString(), body.eventData ? JSON.stringify(body.eventData) : null,
     body.iSawYouData ? JSON.stringify(body.iSawYouData) : null, body.taggedUserId || null

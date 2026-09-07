@@ -35,8 +35,9 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   }
 
   if (action === 'removeImage') {
-    // Only the author can remove an image from their own post
-    if (!post.authorId || post.authorId !== userId) {
+    // The real owner can remove an image, even from an anonymous post
+    const owner = post.ownerId || post.authorId;
+    if (!owner || owner !== userId) {
       return NextResponse.json({ error: 'Not authorized' }, { status: 403 });
     }
     const images: string[] = JSON.parse(post.images || '[]');
@@ -65,8 +66,9 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
 
   const post = await db.prepare('SELECT * FROM posts WHERE id = ?').get(id) as any;
   if (!post) return NextResponse.json({ error: 'Post not found' }, { status: 404 });
-  // Only the author can delete (anonymous posts can't be deleted via this path unless matched)
-  if (post.authorId && post.authorId !== userId) {
+  // The real owner can delete their post — including anonymous ones (matched via ownerId)
+  const owner = post.ownerId || post.authorId;
+  if (owner && owner !== userId) {
     return NextResponse.json({ error: 'Not authorized' }, { status: 403 });
   }
   await db.prepare('DELETE FROM comments WHERE postId = ?').run(id);

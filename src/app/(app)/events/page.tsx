@@ -18,7 +18,7 @@ export default function EventsPage() {
   const handleCreateEvent = () => {
     if (!eventForm.name || !eventForm.date || !eventForm.time || !eventForm.location) return;
     const newPost = {
-      id: generateId(), type: 'event' as const, authorId: eventForm.isAnonymous ? null : currentUser.id, isAnonymous: eventForm.isAnonymous,
+      id: generateId(), type: 'event' as const, authorId: eventForm.isAnonymous ? null : currentUser.id, ownerId: currentUser.id, isAnonymous: eventForm.isAnonymous,
       content: eventForm.description || `Join me for: ${eventForm.name}!`, likes: 0, likedBy: [] as string[], comments: [], shares: 0, savedBy: [] as string[], reports: 0, createdAt: new Date().toISOString(),
       eventData: {
         id: generateId(), name: eventForm.name, description: eventForm.description, date: eventForm.date, time: eventForm.time, location: eventForm.location,

@@ -151,6 +151,7 @@ async function initializeDb() {
       id TEXT PRIMARY KEY,
       type TEXT NOT NULL DEFAULT 'normal',
       authorId TEXT,
+      ownerId TEXT,
       isAnonymous INTEGER DEFAULT 0,
       content TEXT NOT NULL,
       images TEXT DEFAULT '[]',
@@ -281,6 +282,8 @@ async function initializeDb() {
   // These only run when the column is missing; errors (already exists) are ignored.
   await ensureColumn(c, 'notifications', 'relatedId', 'TEXT');
   await ensureColumn(c, 'notifications', 'relatedType', 'TEXT');
+  // ownerId always stores the real author (even for anonymous posts) so the owner can manage them.
+  await ensureColumn(c, 'posts', 'ownerId', 'TEXT');
 }
 
 async function ensureColumn(c: Client, table: string, column: string, type: string) {

@@ -76,6 +76,7 @@ export default function CreatePost({ defaultType = 'normal', onClose }: { defaul
       id: generateId(),
       type: selectedType,
       authorId: isAnonymous ? null : currentUser.id,
+      ownerId: currentUser.id,
       isAnonymous,
       content: content.trim(),
       images: imageUrls,
