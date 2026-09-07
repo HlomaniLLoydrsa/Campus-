@@ -53,6 +53,7 @@ interface AppContextType {
   stories: Story[];
   createStory: (content: string, image: string | undefined, backgroundColor: string) => Promise<void>;
   sharePost: (postId: string) => void;
+  removePostImage: (postId: string, imageUrl: string) => void;
   reportContent: (targetType: string, targetId: string, reason: string) => void;
   deletePost: (postId: string) => void;
   blockUser: (userId: string) => void;
@@ -480,6 +481,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
     fetch(`/api/posts/${postId}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'share', userId: currentUser.id }) }).catch(() => {});
   }, [currentUser.id]);
 
+  const removePostImage = useCallback((postId: string, imageUrl: string) => {
+    setPosts(prev => prev.map(p => p.id === postId ? { ...p, images: (p.images || []).filter(img => img !== imageUrl) } : p));
+    fetch(`/api/posts/${postId}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'removeImage', userId: currentUser.id, imageUrl }) }).catch(() => {});
+  }, [currentUser.id]);
+
   const reportContent = useCallback((targetType: string, targetId: string, reason: string) => {
     fetch('/api/reports', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ reporterId: currentUser.id, targetType, targetId, reason }) }).catch(() => {});
   }, [currentUser.id]);
@@ -525,7 +531,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       wingmanSuggestions, sendWingmanSuggestion, respondToWingman,
       respondToISawYou, joinEvent, leaveEvent, approveEventJoin, rejectEventJoin,
       stories, createStory,
-      sharePost, reportContent, deletePost, blockUser,
+      sharePost, removePostImage, reportContent, deletePost, blockUser,
       badges, profileStats,
       users, getUserById, refreshData,
     }}>

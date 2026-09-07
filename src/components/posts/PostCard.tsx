@@ -13,7 +13,7 @@ interface Props {
 }
 
 export default function PostCard({ post }: Props) {
-  const { currentUser, likePost, savePost, addComment, getUserById, sharePost, reportContent, deletePost, connections, getOrCreateDirectConversation, sendMessage } = useApp();
+  const { currentUser, likePost, savePost, addComment, getUserById, sharePost, removePostImage, reportContent, deletePost, connections, getOrCreateDirectConversation, sendMessage } = useApp();
   const [showComments, setShowComments] = useState(false);
   const [commentText, setCommentText] = useState('');
   const [showMenu, setShowMenu] = useState(false);
@@ -130,7 +130,12 @@ export default function PostCard({ post }: Props) {
 
       {/* Images — Facebook-style mosaic */}
       {post.images && post.images.length > 0 && post.images[0] && (
-        <PostImages images={post.images.filter(Boolean)} onOpen={(i) => setLightboxIndex(i)} />
+        <PostImages
+          images={post.images.filter(Boolean)}
+          onOpen={(i) => setLightboxIndex(i)}
+          canDelete={isOwnPost}
+          onDelete={(url) => { if (confirm('Remove this picture from your post?')) removePostImage(post.id, url); }}
+        />
       )}
 
       {/* Event card */}
@@ -272,15 +277,28 @@ export default function PostCard({ post }: Props) {
 }
 
 // Facebook-style image mosaic: 1 big, 2 side-by-side, 3-4 grid, 5+ shows "+N more"
-function PostImages({ images, onOpen }: { images: string[]; onOpen: (i: number) => void }) {
+function PostImages({ images, onOpen, canDelete = false, onDelete }: { images: string[]; onOpen: (i: number) => void; canDelete?: boolean; onDelete?: (url: string) => void }) {
   const count = images.length;
   const cellClass = 'relative overflow-hidden bg-gray-100 cursor-pointer';
   const imgClass = 'w-full h-full object-cover hover:opacity-95 transition-opacity';
 
+  const DeleteBtn = ({ url }: { url: string }) => (
+    canDelete && onDelete ? (
+      <button
+        onClick={(e) => { e.stopPropagation(); onDelete(url); }}
+        title="Remove this picture"
+        className="absolute top-2 right-2 z-10 bg-black/60 text-white p-1.5 rounded-full hover:bg-red-600 transition-colors"
+      >
+        <Trash2 size={14} />
+      </button>
+    ) : null
+  );
+
   if (count === 1) {
     return (
-      <div className="mb-3 rounded-xl overflow-hidden bg-gray-100 max-h-[70vh] flex items-center justify-center">
+      <div className="relative mb-3 rounded-xl overflow-hidden bg-gray-100 max-h-[70vh] flex items-center justify-center">
         <img src={images[0]} alt="" onClick={() => onOpen(0)} className="w-full h-auto max-h-[70vh] object-contain cursor-pointer" />
+        <DeleteBtn url={images[0]} />
       </div>
     );
   }
@@ -289,7 +307,7 @@ function PostImages({ images, onOpen }: { images: string[]; onOpen: (i: number) 
     return (
       <div className="mb-3 grid grid-cols-2 gap-1 rounded-xl overflow-hidden h-64">
         {images.map((src, i) => (
-          <div key={i} className={cellClass} onClick={() => onOpen(i)}><img src={src} alt="" className={imgClass} /></div>
+          <div key={i} className={cellClass} onClick={() => onOpen(i)}><img src={src} alt="" className={imgClass} /><DeleteBtn url={src} /></div>
         ))}
       </div>
     );
@@ -298,9 +316,9 @@ function PostImages({ images, onOpen }: { images: string[]; onOpen: (i: number) 
   if (count === 3) {
     return (
       <div className="mb-3 grid grid-cols-2 grid-rows-2 gap-1 rounded-xl overflow-hidden h-72">
-        <div className={`${cellClass} row-span-2`} onClick={() => onOpen(0)}><img src={images[0]} alt="" className={imgClass} /></div>
-        <div className={cellClass} onClick={() => onOpen(1)}><img src={images[1]} alt="" className={imgClass} /></div>
-        <div className={cellClass} onClick={() => onOpen(2)}><img src={images[2]} alt="" className={imgClass} /></div>
+        <div className={`${cellClass} row-span-2`} onClick={() => onOpen(0)}><img src={images[0]} alt="" className={imgClass} /><DeleteBtn url={images[0]} /></div>
+        <div className={cellClass} onClick={() => onOpen(1)}><img src={images[1]} alt="" className={imgClass} /><DeleteBtn url={images[1]} /></div>
+        <div className={cellClass} onClick={() => onOpen(2)}><img src={images[2]} alt="" className={imgClass} /><DeleteBtn url={images[2]} /></div>
       </div>
     );
   }
@@ -316,6 +334,7 @@ function PostImages({ images, onOpen }: { images: string[]; onOpen: (i: number) 
           {i === 3 && extra > 0 && (
             <div className="absolute inset-0 bg-black/50 flex items-center justify-center text-white text-2xl font-bold">+{extra}</div>
           )}
+          <DeleteBtn url={src} />
         </div>
       ))}
     </div>

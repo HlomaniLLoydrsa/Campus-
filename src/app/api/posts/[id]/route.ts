@@ -34,6 +34,18 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     return NextResponse.json({ shares });
   }
 
+  if (action === 'removeImage') {
+    // Only the author can remove an image from their own post
+    if (!post.authorId || post.authorId !== userId) {
+      return NextResponse.json({ error: 'Not authorized' }, { status: 403 });
+    }
+    const images: string[] = JSON.parse(post.images || '[]');
+    const { imageUrl } = body;
+    const newImages = images.filter((img) => img !== imageUrl);
+    await db.prepare('UPDATE posts SET images = ? WHERE id = ?').run(JSON.stringify(newImages), id);
+    return NextResponse.json({ images: newImages });
+  }
+
   if (action === 'comment' && content) {
     const commentId = `c_${Date.now()}`;
     await db.prepare('INSERT INTO comments (id, postId, authorId, content, likes, likedBy, createdAt) VALUES (?, ?, ?, ?, 0, ?, ?)').run(commentId, id, userId, content, '[]', new Date().toISOString());
