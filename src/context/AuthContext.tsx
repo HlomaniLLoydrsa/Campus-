@@ -130,6 +130,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = () => {
     setUser(null);
     localStorage.removeItem('campus_user');
+    // Clear the server session cookie too (fire-and-forget).
+    fetch('/api/auth/logout', { method: 'POST' }).catch(() => {});
   };
 
   return (

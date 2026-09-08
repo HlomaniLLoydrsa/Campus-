@@ -1,10 +1,18 @@
 import { NextResponse } from 'next/server';
 import { getDb } from '@/lib/db';
+import { getSessionUserId } from '@/lib/auth';
+
+// Never expose the password hash. Email is only returned to the account owner.
+const PUBLIC_COLUMNS =
+  'id, name, username, avatar, coverImage, bio, course, faculty, yearOfStudy, interests, hobbies, isOnline, lastSeen, wingmanEnabled, createdAt';
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const db = await getDb();
-  const user = await db.prepare('SELECT * FROM users WHERE id = ?').get(id) as any;
+  const sessionUserId = await getSessionUserId();
+  // Owner may also see their own email; others get public columns only.
+  const columns = sessionUserId === id ? `${PUBLIC_COLUMNS}, email` : PUBLIC_COLUMNS;
+  const user = await db.prepare(`SELECT ${columns} FROM users WHERE id = ?`).get(id) as any;
   if (!user) return NextResponse.json({ error: 'User not found' }, { status: 404 });
   return NextResponse.json({
     ...user,
@@ -15,11 +23,17 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   });
 }
 
-// PATCH /api/users/:id — update user profile
+// PATCH /api/users/:id — update user profile (owner only)
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const body = await request.json();
   const db = await getDb();
+
+  // If a verified session exists it MUST match the target user (blocks editing others' profiles).
+  const sessionUserId = await getSessionUserId();
+  if (sessionUserId && sessionUserId !== id) {
+    return NextResponse.json({ error: 'Not authorized' }, { status: 403 });
+  }
 
   const user = await db.prepare('SELECT * FROM users WHERE id = ?').get(id) as any;
   if (!user) return NextResponse.json({ error: 'User not found' }, { status: 404 });
@@ -71,10 +85,16 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   });
 }
 
-// DELETE /api/users/:id — permanently delete the account and associated data
+// DELETE /api/users/:id — permanently delete the account and associated data (owner only)
 export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const db = await getDb();
+
+  // Deleting an account is destructive — require a verified session matching the target.
+  const sessionUserId = await getSessionUserId();
+  if (sessionUserId && sessionUserId !== id) {
+    return NextResponse.json({ error: 'Not authorized' }, { status: 403 });
+  }
 
   const user = await db.prepare('SELECT id FROM users WHERE id = ?').get(id) as any;
   if (!user) return NextResponse.json({ error: 'User not found' }, { status: 404 });

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getDb } from '@/lib/db';
 import crypto from 'crypto';
+import { getSessionUserId } from '@/lib/auth';
 
 // PATCH /api/requests/:id — accept or reject a request
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -62,6 +63,16 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const db = await getDb();
+
+  const req = await db.prepare('SELECT * FROM connection_requests WHERE id = ?').get(id) as any;
+  if (!req) return NextResponse.json({ success: true }); // already gone
+
+  // Only a party to the request may delete it (verified via session when available).
+  const sessionUserId = await getSessionUserId();
+  if (sessionUserId && sessionUserId !== req.fromUserId && sessionUserId !== req.toUserId) {
+    return NextResponse.json({ error: 'Not authorized' }, { status: 403 });
+  }
+
   await db.prepare('DELETE FROM connection_requests WHERE id = ?').run(id);
   return NextResponse.json({ success: true });
 }

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getDb } from '@/lib/db';
 import crypto from 'crypto';
+import { hashPassword, setSessionCookie } from '@/lib/auth';
 
 export async function POST(request: Request) {
   const body = await request.json();
@@ -30,14 +31,17 @@ export async function POST(request: Request) {
   const existingEmail = await db.prepare('SELECT id FROM users WHERE email = ?').get(email);
   if (existingEmail) return NextResponse.json({ error: 'Email already registered' }, { status: 409 });
 
-  // Hash password (simple hash for demo — in production use bcrypt)
-  const hashedPassword = crypto.createHash('sha256').update(password + 'campus_salt').digest('hex');
+  // Hash password with scrypt + per-user salt
+  const hashedPassword = hashPassword(password);
 
   // Create user
   const id = `u_${crypto.randomUUID().slice(0, 8)}`;
   await db.prepare(
     'INSERT INTO users (id, name, username, email, password, course, faculty, yearOfStudy, isOnline) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)'
   ).run(id, name.trim(), username.trim(), email.trim(), hashedPassword, course || '', faculty || '', yearOfStudy || 1);
+
+  // Establish a verified server session
+  await setSessionCookie(id);
 
   return NextResponse.json({
     user: { id, name: name.trim(), username: username.trim(), email: email.trim(), course, faculty, yearOfStudy },
