@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getDb } from '@/lib/db';
 import crypto from 'crypto';
+import { requireUserId } from '@/lib/auth';
 
 // GET /api/posts
 export async function GET() {
@@ -27,8 +28,12 @@ export async function GET() {
   })));
 }
 
-// POST /api/posts — create a new post
+// POST /api/posts — create a new post AS the authenticated user
 export async function POST(request: Request) {
+  const auth = await requireUserId();
+  if (auth instanceof NextResponse) return auth;
+  const sessionUserId = auth;
+
   const body = await request.json();
   const db = await getDb();
   // Respect client-provided id so optimistic UI stays in sync; otherwise generate one
@@ -38,15 +43,18 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Post must have content or an image' }, { status: 400 });
   }
 
-  // ownerId is the real author, kept private (never shown for anonymous posts) so the owner can manage the post.
-  const ownerId = body.ownerId || body.authorId || null;
+  // Identity is derived from the session, never trusted from the body.
+  // ownerId always records the real author (even for anonymous posts) so the owner can manage it.
+  const isAnonymous = !!body.isAnonymous;
+  const authorId = isAnonymous ? null : sessionUserId;
+  const ownerId = sessionUserId;
 
   await db.prepare('INSERT INTO posts (id, type, authorId, ownerId, isAnonymous, content, images, likes, likedBy, savedBy, createdAt, eventData, iSawYouData, taggedUserId) VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?)').run(
-    id, body.type || 'normal', body.authorId || null, ownerId, body.isAnonymous ? 1 : 0,
+    id, body.type || 'normal', authorId, ownerId, isAnonymous ? 1 : 0,
     body.content || '', JSON.stringify(body.images || []), '[]', '[]',
     body.createdAt || new Date().toISOString(), body.eventData ? JSON.stringify(body.eventData) : null,
     body.iSawYouData ? JSON.stringify(body.iSawYouData) : null, body.taggedUserId || null
   );
 
-  return NextResponse.json({ id, ...body }, { status: 201 });
+  return NextResponse.json({ id, ...body, authorId, ownerId }, { status: 201 });
 }

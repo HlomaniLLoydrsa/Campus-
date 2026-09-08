@@ -1,12 +1,16 @@
 import { NextResponse } from 'next/server';
 import { getDb } from '@/lib/db';
 import crypto from 'crypto';
+import { requireUserId } from '@/lib/auth';
 
-// POST /api/conversations — create or fetch a direct conversation (connection-gated)
+// POST /api/conversations — create or fetch a conversation for the authenticated user (connection-gated)
 export async function POST(request: Request) {
+  const auth = await requireUserId();
+  if (auth instanceof NextResponse) return auth;
+  const userId = auth; // creator/participant is always the session user
+
   const body = await request.json();
-  const { userId, otherUserId, type = 'direct', name, participantIds } = body;
-  if (!userId) return NextResponse.json({ error: 'userId required' }, { status: 400 });
+  const { otherUserId, type = 'direct', name, participantIds } = body;
 
   const db = await getDb();
 

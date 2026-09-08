@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getDb } from '@/lib/db';
 import crypto from 'crypto';
+import { requireUserId } from '@/lib/auth';
 
 // GET /api/games
 export async function GET() {
@@ -13,12 +14,15 @@ export async function GET() {
   })));
 }
 
-// POST /api/games — create a new game
+// POST /api/games — create a new game (creator = authenticated user)
 export async function POST(request: Request) {
-  const body = await request.json();
-  const { type, creatorId, title, data } = body;
+  const auth = await requireUserId();
+  if (auth instanceof NextResponse) return auth;
+  const creatorId = auth;
 
-  if (!creatorId) return NextResponse.json({ error: 'creatorId required' }, { status: 400 });
+  const body = await request.json();
+  const { type, title, data } = body;
+
   if (!type || !['would-you-rather', 'never-have-i-ever', 'two-truths-one-lie'].includes(type)) {
     return NextResponse.json({ error: 'Invalid game type' }, { status: 400 });
   }
@@ -54,10 +58,14 @@ export async function POST(request: Request) {
   return NextResponse.json({ id, type, creatorId, title: title.trim(), status: 'active', participants: [creatorId], data: normalizedData, createdAt: new Date().toISOString() }, { status: 201 });
 }
 
-// PATCH /api/games — vote/guess
+// PATCH /api/games — vote/guess as the authenticated user
 export async function PATCH(request: Request) {
+  const auth = await requireUserId();
+  if (auth instanceof NextResponse) return auth;
+  const userId = auth;
+
   const body = await request.json();
-  const { gameId, action, userId, option, statementIndex, response, guessIndex } = body;
+  const { gameId, action, option, statementIndex, response, guessIndex } = body;
   const db = await getDb();
 
   const game = await db.prepare('SELECT * FROM games WHERE id = ?').get(gameId) as any;

@@ -1,5 +1,6 @@
 import crypto from 'crypto';
 import { cookies } from 'next/headers';
+import { NextResponse } from 'next/server';
 
 /**
  * Auth utilities: password hashing + a signed session cookie.
@@ -108,4 +109,21 @@ export async function getSessionUserId(): Promise<string | null> {
   } catch {
     return null;
   }
+}
+
+/**
+ * Require an authenticated session. Returns the verified user id, or a 401 response
+ * that the route should return immediately.
+ *
+ * Usage:
+ *   const auth = await requireUserId();
+ *   if (auth instanceof NextResponse) return auth;
+ *   const userId = auth; // trusted, from the signed cookie
+ */
+export async function requireUserId(): Promise<string | NextResponse> {
+  const userId = await getSessionUserId();
+  if (!userId) {
+    return NextResponse.json({ error: 'You must be signed in.' }, { status: 401 });
+  }
+  return userId;
 }

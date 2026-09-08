@@ -1,11 +1,16 @@
 import { NextResponse } from 'next/server';
 import { getDb } from '@/lib/db';
+import { requireUserId } from '@/lib/auth';
 
-// PATCH /api/posts/:id — like, save, comment
+// PATCH /api/posts/:id — like, save, comment, removeImage (as the authenticated user)
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
+  const auth = await requireUserId();
+  if (auth instanceof NextResponse) return auth;
+  const userId = auth;
+
   const body = await request.json();
-  const { action, userId, content } = body;
+  const { action, content } = body;
   const db = await getDb();
 
   const post = await db.prepare('SELECT * FROM posts WHERE id = ?').get(id) as any;
@@ -57,11 +62,12 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
 }
 
-// DELETE /api/posts/:id?userId=x — delete own post
+// DELETE /api/posts/:id — delete your own post (owner derived from session)
 export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const { searchParams } = new URL(request.url);
-  const userId = searchParams.get('userId');
+  const auth = await requireUserId();
+  if (auth instanceof NextResponse) return auth;
+  const userId = auth;
   const db = await getDb();
 
   const post = await db.prepare('SELECT * FROM posts WHERE id = ?').get(id) as any;

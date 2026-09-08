@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getDb } from '@/lib/db';
+import { requireUserId } from '@/lib/auth';
 
 interface BadgeDef {
   id: string;
@@ -66,11 +67,11 @@ async function computeStats(db: any, userId: string): Promise<Stats> {
   return { posts, confessions, questions, shoutouts, events, connections, gamesCreated, gamesPlayed, storiesPosted, wingmanSuggestions, isEarlyMember, trendingPost };
 }
 
-// GET /api/badges?userId=xxx — compute + persist earned badges, return the full list with earned flag
-export async function GET(request: Request) {
-  const { searchParams } = new URL(request.url);
-  const userId = searchParams.get('userId');
-  if (!userId) return NextResponse.json({ error: 'userId required' }, { status: 400 });
+// GET /api/badges — compute + persist the AUTHENTICATED user's earned badges
+export async function GET() {
+  const auth = await requireUserId();
+  if (auth instanceof NextResponse) return auth;
+  const userId = auth;
 
   const db = await getDb();
 

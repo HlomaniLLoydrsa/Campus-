@@ -1,13 +1,18 @@
 import { NextResponse } from 'next/server';
 import { getDb } from '@/lib/db';
 import crypto from 'crypto';
+import { requireUserId } from '@/lib/auth';
 
-// POST /api/reports — report a post, user, comment, event, or message
+// POST /api/reports — report content AS the authenticated user
 export async function POST(request: Request) {
+  const auth = await requireUserId();
+  if (auth instanceof NextResponse) return auth;
+  const reporterId = auth;
+
   const body = await request.json();
-  const { reporterId, targetType, targetId, reason } = body;
-  if (!reporterId || !targetType || !targetId) {
-    return NextResponse.json({ error: 'reporterId, targetType, targetId required' }, { status: 400 });
+  const { targetType, targetId, reason } = body;
+  if (!targetType || !targetId) {
+    return NextResponse.json({ error: 'targetType, targetId required' }, { status: 400 });
   }
   const db = await getDb();
   const id = `rep_${crypto.randomUUID().slice(0, 8)}`;

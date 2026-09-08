@@ -1,12 +1,13 @@
 import { NextResponse } from 'next/server';
 import { getDb } from '@/lib/db';
+import { requireUserId } from '@/lib/auth';
 
-// POST /api/posts/:id/respond — respond to an "I Saw You" post ("that's me")
+// POST /api/posts/:id/respond — respond to an "I Saw You" post ("that's me") as the authenticated user
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const body = await request.json();
-  const { userId } = body;
-  if (!userId) return NextResponse.json({ error: 'userId required' }, { status: 400 });
+  const auth = await requireUserId();
+  if (auth instanceof NextResponse) return auth;
+  const userId = auth;
 
   const db = await getDb();
   const post = await db.prepare('SELECT * FROM posts WHERE id = ?').get(id) as any;

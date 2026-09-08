@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import crypto from 'crypto';
 import { saveImage } from '@/lib/storage';
+import { requireUserId } from '@/lib/auth';
 
 // Map common image MIME types to a clean file extension
 const MIME_EXT: Record<string, string> = {
@@ -19,6 +20,10 @@ const MIME_EXT: Record<string, string> = {
 
 export async function POST(request: Request) {
   try {
+    // Only signed-in users may upload (prevents anonymous storage abuse).
+    const auth = await requireUserId();
+    if (auth instanceof NextResponse) return auth;
+
     const formData = await request.formData();
     const file = formData.get('file') as File | null;
 

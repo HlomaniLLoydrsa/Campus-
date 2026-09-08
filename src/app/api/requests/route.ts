@@ -1,12 +1,13 @@
 import { NextResponse } from 'next/server';
 import { getDb } from '@/lib/db';
 import crypto from 'crypto';
+import { requireUserId } from '@/lib/auth';
 
-// GET /api/requests?userId=u1 — get all pending requests for/from a user
-export async function GET(request: Request) {
-  const { searchParams } = new URL(request.url);
-  const userId = searchParams.get('userId');
-  if (!userId) return NextResponse.json({ error: 'userId required' }, { status: 400 });
+// GET /api/requests — pending requests involving the authenticated user
+export async function GET() {
+  const auth = await requireUserId();
+  if (auth instanceof NextResponse) return auth;
+  const userId = auth;
 
   const db = await getDb();
   const requests = await db.prepare(
@@ -15,13 +16,17 @@ export async function GET(request: Request) {
   return NextResponse.json(requests);
 }
 
-// POST /api/requests — send a new connection request
+// POST /api/requests — send a new connection request AS the authenticated user
 export async function POST(request: Request) {
-  const body = await request.json();
-  const { fromUserId, toUserId, type } = body;
+  const auth = await requireUserId();
+  if (auth instanceof NextResponse) return auth;
+  const fromUserId = auth; // sender is always the session user — cannot be spoofed
 
-  if (!fromUserId || !toUserId || !type) {
-    return NextResponse.json({ error: 'fromUserId, toUserId, and type are required' }, { status: 400 });
+  const body = await request.json();
+  const { toUserId, type } = body;
+
+  if (!toUserId || !type) {
+    return NextResponse.json({ error: 'toUserId and type are required' }, { status: 400 });
   }
   if (fromUserId === toUserId) {
     return NextResponse.json({ error: 'Cannot send request to yourself' }, { status: 400 });

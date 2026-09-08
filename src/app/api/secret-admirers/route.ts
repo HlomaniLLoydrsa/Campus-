@@ -1,12 +1,13 @@
 import { NextResponse } from 'next/server';
 import { getDb } from '@/lib/db';
 import crypto from 'crypto';
+import { requireUserId } from '@/lib/auth';
 
-// GET /api/secret-admirers?userId=xxx
-export async function GET(request: Request) {
-  const { searchParams } = new URL(request.url);
-  const userId = searchParams.get('userId');
-  if (!userId) return NextResponse.json({ error: 'userId required' }, { status: 400 });
+// GET /api/secret-admirers — records involving the authenticated user
+export async function GET() {
+  const auth = await requireUserId();
+  if (auth instanceof NextResponse) return auth;
+  const userId = auth;
 
   const db = await getDb();
   const rows = await db.prepare('SELECT * FROM secret_admirers WHERE toUserId = ? OR fromUserId = ? ORDER BY createdAt DESC').all(userId, userId);
@@ -17,11 +18,15 @@ export async function GET(request: Request) {
   })));
 }
 
-// POST /api/secret-admirers
+// POST /api/secret-admirers — send AS the authenticated user
 export async function POST(request: Request) {
+  const auth = await requireUserId();
+  if (auth instanceof NextResponse) return auth;
+  const fromUserId = auth;
+
   const body = await request.json();
-  const { fromUserId, toUserId, message } = body;
-  if (!fromUserId || !toUserId || !message?.trim()) return NextResponse.json({ error: 'fromUserId, toUserId, message required' }, { status: 400 });
+  const { toUserId, message } = body;
+  if (!toUserId || !message?.trim()) return NextResponse.json({ error: 'toUserId and message required' }, { status: 400 });
   if (fromUserId === toUserId) return NextResponse.json({ error: 'Cannot send to yourself' }, { status: 400 });
 
   const db = await getDb();
@@ -38,11 +43,19 @@ export async function POST(request: Request) {
 // PATCH /api/secret-admirers
 // action: 'curious' (recipient), 'reveal' (either side consents to reveal), 'ignored', 'blocked'
 export async function PATCH(request: Request) {
+  const auth = await requireUserId();
+  if (auth instanceof NextResponse) return auth;
+  const userId = auth;
+
   const body = await request.json();
-  const { id, action, userId } = body;
+  const { id, action } = body;
   const db = await getDb();
   const sa = await db.prepare('SELECT * FROM secret_admirers WHERE id = ?').get(id) as any;
   if (!sa) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+  // Caller must be a party to this secret-admirer record.
+  if (userId !== sa.fromUserId && userId !== sa.toUserId) {
+    return NextResponse.json({ error: 'Not authorized' }, { status: 403 });
+  }
 
   if (action === 'curious') {
     // Recipient is curious — consents to reveal from their side

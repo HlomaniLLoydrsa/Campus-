@@ -6,11 +6,15 @@ import { getSessionUserId } from '@/lib/auth';
 // PATCH /api/requests/:id — accept or reject a request
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const body = await request.json();
-  const { action, userId } = body; // action: 'accept' | 'reject' | 'cancel'
+  const sessionUserId = await getSessionUserId();
+  if (!sessionUserId) return NextResponse.json({ error: 'You must be signed in.' }, { status: 401 });
+  const userId = sessionUserId; // identity from the signed session, never the client body
 
-  if (!action || !userId) {
-    return NextResponse.json({ error: 'action and userId required' }, { status: 400 });
+  const body = await request.json();
+  const { action } = body; // action: 'accept' | 'reject' | 'cancel'
+
+  if (!action) {
+    return NextResponse.json({ error: 'action required' }, { status: 400 });
   }
 
   const db = await getDb();

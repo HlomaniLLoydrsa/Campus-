@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getDb } from '@/lib/db';
 import crypto from 'crypto';
+import { requireUserId } from '@/lib/auth';
 
 // GET /api/stories — get all active stories (less than 24h old)
 export async function GET() {
@@ -29,12 +30,15 @@ export async function GET() {
   })));
 }
 
-// POST /api/stories — create a new story (expires in 24h)
+// POST /api/stories — create a story AS the authenticated user (expires in 24h)
 export async function POST(request: Request) {
-  const body = await request.json();
-  const { userId, content, image, backgroundColor } = body;
+  const auth = await requireUserId();
+  if (auth instanceof NextResponse) return auth;
+  const userId = auth;
 
-  if (!userId) return NextResponse.json({ error: 'userId required' }, { status: 400 });
+  const body = await request.json();
+  const { content, image, backgroundColor } = body;
+
   if (!content && !image) return NextResponse.json({ error: 'content or image required' }, { status: 400 });
 
   const db = await getDb();

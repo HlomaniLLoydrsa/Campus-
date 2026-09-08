@@ -1,12 +1,13 @@
 import { NextResponse } from 'next/server';
 import { getDb } from '@/lib/db';
 import crypto from 'crypto';
+import { requireUserId } from '@/lib/auth';
 
-// GET /api/messages?userId=u1 — get conversations for user
-export async function GET(request: Request) {
-  const { searchParams } = new URL(request.url);
-  const userId = searchParams.get('userId');
-  if (!userId) return NextResponse.json({ error: 'userId required' }, { status: 400 });
+// GET /api/messages — get conversations for the AUTHENTICATED user (identity from session, not query)
+export async function GET() {
+  const auth = await requireUserId();
+  if (auth instanceof NextResponse) return auth;
+  const userId = auth;
 
   const db = await getDb();
   const allConversations = await db.prepare('SELECT * FROM conversations').all() as any[];
@@ -36,23 +37,30 @@ export async function GET(request: Request) {
   return NextResponse.json(result);
 }
 
-// POST /api/messages — send a message
+// POST /api/messages — send a message AS the authenticated user (senderId is ignored/derived from session)
 export async function POST(request: Request) {
-  const body = await request.json();
-  const { conversationId, senderId, content } = body;
+  const auth = await requireUserId();
+  if (auth instanceof NextResponse) return auth;
+  const senderId = auth;
 
-  if (!conversationId || !senderId || !content) {
-    return NextResponse.json({ error: 'conversationId, senderId, content required' }, { status: 400 });
+  const body = await request.json();
+  const { conversationId, content } = body;
+
+  if (!conversationId || !content) {
+    return NextResponse.json({ error: 'conversationId and content required' }, { status: 400 });
   }
 
   const db = await getDb();
 
-  // Verify sender is connected for direct messages
+  // Sender must be a participant in the conversation.
   const conv = await db.prepare('SELECT * FROM conversations WHERE id = ?').get(conversationId) as any;
   if (!conv) return NextResponse.json({ error: 'Conversation not found' }, { status: 404 });
+  const participants = JSON.parse(conv.participants || '[]');
+  if (!participants.includes(senderId)) {
+    return NextResponse.json({ error: 'Not authorized' }, { status: 403 });
+  }
 
   if (conv.type === 'direct') {
-    const participants = JSON.parse(conv.participants || '[]');
     const otherUser = participants.find((p: string) => p !== senderId);
     if (otherUser) {
       const connected = await db.prepare('SELECT * FROM connections WHERE userId = ? AND connectedUserId = ?').get(senderId, otherUser);
@@ -72,12 +80,23 @@ export async function POST(request: Request) {
   return NextResponse.json({ id, conversationId, senderId, content, read: false, createdAt }, { status: 201 });
 }
 
-// PATCH /api/messages — mark all messages in a conversation as read for a user
+// PATCH /api/messages — mark messages in a conversation as read for the authenticated user
 export async function PATCH(request: Request) {
+  const auth = await requireUserId();
+  if (auth instanceof NextResponse) return auth;
+  const userId = auth;
+
   const body = await request.json();
-  const { conversationId, userId } = body;
-  if (!conversationId || !userId) return NextResponse.json({ error: 'conversationId, userId required' }, { status: 400 });
+  const { conversationId } = body;
+  if (!conversationId) return NextResponse.json({ error: 'conversationId required' }, { status: 400 });
+
   const db = await getDb();
+  // Only a participant may mark a conversation read.
+  const conv = await db.prepare('SELECT participants FROM conversations WHERE id = ?').get(conversationId) as any;
+  if (!conv) return NextResponse.json({ error: 'Conversation not found' }, { status: 404 });
+  if (!JSON.parse(conv.participants || '[]').includes(userId)) {
+    return NextResponse.json({ error: 'Not authorized' }, { status: 403 });
+  }
   await db.prepare('UPDATE messages SET read = 1 WHERE conversationId = ? AND senderId != ?').run(conversationId, userId);
   return NextResponse.json({ success: true });
 }

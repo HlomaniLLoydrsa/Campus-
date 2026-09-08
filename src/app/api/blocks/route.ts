@@ -1,21 +1,26 @@
 import { NextResponse } from 'next/server';
 import { getDb } from '@/lib/db';
+import { requireUserId } from '@/lib/auth';
 
-// GET /api/blocks?userId=xxx — get list of users this person has blocked
-export async function GET(request: Request) {
-  const { searchParams } = new URL(request.url);
-  const userId = searchParams.get('userId');
-  if (!userId) return NextResponse.json({ error: 'userId required' }, { status: 400 });
+// GET /api/blocks — users the authenticated person has blocked
+export async function GET() {
+  const auth = await requireUserId();
+  if (auth instanceof NextResponse) return auth;
+  const userId = auth;
   const db = await getDb();
   const rows = await db.prepare('SELECT blockedId FROM blocks WHERE blockerId = ?').all(userId) as any[];
   return NextResponse.json(rows.map(r => r.blockedId));
 }
 
-// POST /api/blocks — block a user (also removes any connection between them)
+// POST /api/blocks — the authenticated user blocks someone (also removes any connection)
 export async function POST(request: Request) {
+  const auth = await requireUserId();
+  if (auth instanceof NextResponse) return auth;
+  const blockerId = auth;
+
   const body = await request.json();
-  const { blockerId, blockedId } = body;
-  if (!blockerId || !blockedId) return NextResponse.json({ error: 'blockerId, blockedId required' }, { status: 400 });
+  const { blockedId } = body;
+  if (!blockedId) return NextResponse.json({ error: 'blockedId required' }, { status: 400 });
 
   const db = await getDb();
   await db.prepare('INSERT OR IGNORE INTO blocks (blockerId, blockedId) VALUES (?, ?)').run(blockerId, blockedId);
@@ -26,12 +31,15 @@ export async function POST(request: Request) {
   return NextResponse.json({ success: true }, { status: 201 });
 }
 
-// DELETE /api/blocks?blockerId=x&blockedId=y — unblock
+// DELETE /api/blocks?blockedId=y — the authenticated user unblocks someone
 export async function DELETE(request: Request) {
+  const auth = await requireUserId();
+  if (auth instanceof NextResponse) return auth;
+  const blockerId = auth;
+
   const { searchParams } = new URL(request.url);
-  const blockerId = searchParams.get('blockerId');
   const blockedId = searchParams.get('blockedId');
-  if (!blockerId || !blockedId) return NextResponse.json({ error: 'blockerId, blockedId required' }, { status: 400 });
+  if (!blockedId) return NextResponse.json({ error: 'blockedId required' }, { status: 400 });
   const db = await getDb();
   await db.prepare('DELETE FROM blocks WHERE blockerId = ? AND blockedId = ?').run(blockerId, blockedId);
   return NextResponse.json({ success: true });

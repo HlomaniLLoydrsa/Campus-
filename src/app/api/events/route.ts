@@ -1,12 +1,17 @@
 import { NextResponse } from 'next/server';
 import { getDb } from '@/lib/db';
 import crypto from 'crypto';
+import { requireUserId } from '@/lib/auth';
 
-// POST /api/events — join or leave an event
+// POST /api/events — join/leave/approve/reject as the authenticated user
 export async function POST(request: Request) {
+  const auth = await requireUserId();
+  if (auth instanceof NextResponse) return auth;
+  const userId = auth;
+
   const body = await request.json();
-  const { postId, userId, action } = body; // action: join | leave
-  if (!postId || !userId || !action) return NextResponse.json({ error: 'postId, userId, action required' }, { status: 400 });
+  const { postId, action } = body; // action: join | leave | approve | reject
+  if (!postId || !action) return NextResponse.json({ error: 'postId and action required' }, { status: 400 });
 
   const db = await getDb();
   const post = await db.prepare('SELECT * FROM posts WHERE id = ?').get(postId) as any;
