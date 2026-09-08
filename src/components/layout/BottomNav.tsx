@@ -20,8 +20,8 @@ export default function BottomNav() {
   const totalUnread = conversations.reduce((sum, c) => sum + c.unreadCount, 0);
 
   return (
-    <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-campus-dark border-t border-white/10 z-50">
-      <div className="flex items-center justify-around px-2 py-2">
+    <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-campus-dark border-t border-white/10 z-50 pb-[env(safe-area-inset-bottom)]">
+      <div className="flex items-center justify-around px-1 py-2">
         {navItems.map(item => {
           const isActive = pathname === item.href || (item.href !== '/' && pathname.startsWith(item.href));
           const Icon = item.icon;

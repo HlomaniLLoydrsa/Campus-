@@ -19,8 +19,9 @@ export default function Error({ error, reset }: { error: Error & { digest?: stri
           <span className="text-2xl">⚠️</span>
         </div>
         <h1 className="text-xl font-bold text-gray-900 mb-2">Something went wrong</h1>
-        <p className="text-sm text-gray-500 mb-2">The page hit an error. Try again, or reset your session.</p>
-        {error?.message && (
+        <p className="text-sm text-gray-500 mb-4">Please try again. If the problem continues, reset your session.</p>
+        {/* Technical detail is shown only in development, never to production users. */}
+        {process.env.NODE_ENV !== 'production' && error?.message && (
           <p className="text-xs text-red-600 bg-red-50 rounded-lg p-3 mb-4 break-words font-mono">{error.message}</p>
         )}
         <div className="flex gap-2 justify-center">

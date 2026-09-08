@@ -70,6 +70,26 @@
   .scrollbar-hide::-webkit-scrollbar {
     display: none;
   }
+  /* Respect iOS/Android safe areas in standalone PWA mode */
+  .safe-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .safe-top {
+    padding-top: env(safe-area-inset-top);
+  }
+}
+
+/* Prevent accidental horizontal scrolling on small phones (320px+) */
+html, body {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+/* Comfortable minimum tap targets on touch devices */
+@media (pointer: coarse) {
+  button, a[role="button"], .btn-primary, .btn-secondary, .btn-accent, .btn-danger {
+    min-height: 40px;
+  }
 }
 
 /* Additional styles for nav items */
