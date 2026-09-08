@@ -68,21 +68,44 @@ Smoke test against the production build served `manifest.webmanifest`, `sw.js`, 
 
 ---
 
-## D. Security — improvements and remaining concerns
+## D. Security — full sweep complete
 
-**Fixed**
-- Password hashes are **no longer returned** by `/api/users` or `/api/users/[id]`.
-- Passwords now hashed with **scrypt + per-user salt** (old SHA-256 hashes still verify and are upgraded on next login).
-- A **signed, HTTP-only session cookie** is issued on login/signup and cleared on logout. In production it is also `Secure` (HTTPS-only) and `SameSite=Lax`.
-- **Owner-only enforcement** on the most destructive routes using the verified session: editing a profile, deleting an account, and deleting a connection request. Verified: editing another user's profile returns **403**, editing your own returns **200**.
+### Authentication / authorization approach
+- Identity comes from a **signed, HTTP-only session cookie** (`vybe_session`) set on login/signup and cleared on logout. In production it is `Secure` (HTTPS-only) and `SameSite=Lax`.
+- Every private API route now derives the current user with **`requireUserId()`** (from `src/lib/auth.ts`), which reads the signed cookie and returns **401** if there's no valid session. Routes **never trust** a `userId`, `senderId`, `fromUserId`, `creatorId`, etc. supplied in the query string or body — those are ignored for identity.
+- Passwords are hashed with **scrypt + per-user salt**; legacy SHA-256 hashes still verify and are upgraded to scrypt on next login.
 
-**Remaining concerns (recommended follow-up)**
-- Identity is still largely conveyed to *read* routes via a client-supplied `userId` query param (e.g. `/api/messages?userId=`, `/api/notifications?userId=`, `/api/connections?userId=`, `/api/requests?userId=`). These are still spoofable: a determined user could pass another user's id and read that data. The session cookie now exists, so the fix is mechanical but broad — swap each route to derive the id from `getSessionUserId()` and ignore the query param. I did the destructive routes first; the read routes are the next batch.
-- Several write routes trust ids in the body (`senderId`, `fromUserId`, `creatorId`, etc.). Same remediation: derive from the session.
-- `POST /api/upload` has no auth (any visitor can upload an image) — consider requiring a session.
-- Consider adding rate limiting at the host/CDN layer.
+### Vulnerabilities found → fixed (IDOR / privilege escalation)
+| Route | Was | Now |
+|---|---|---|
+| `GET /api/users`, `GET /api/users/[id]` | `SELECT *` leaked **password hash** + email | public columns only; email only to the owner |
+| `PATCH`/`DELETE /api/users/[id]` | anyone could edit/delete any account | requires session matching the target (else 403) |
+| `GET/POST/PATCH /api/messages` | read anyone's DMs via `?userId=`; send as any `senderId` | reads your own conversations; sender = session; participant + connection checks |
+| `GET/PATCH /api/notifications` | read/mark anyone's via `?userId=` | your own only; markRead scoped to your id |
+| `GET/POST /api/requests`, `PATCH/DELETE /api/requests/[id]` | send/accept/reject/delete as anyone | sender/actor = session; only a party may act; outsiders 403 |
+| `GET/DELETE /api/connections` | list/remove anyone's connections | scoped to session |
+| `POST /api/conversations` | create as any user | creator = session; connection-gated |
+| `POST /api/posts`, `PATCH/DELETE /api/posts/[id]`, `respond` | post/edit/delete as anyone | author/owner = session; owner-only edit/delete |
+| `POST /api/stories` | post story as anyone | author = session |
+| `POST/PATCH /api/games` | create/act as anyone | creator/actor = session |
+| `POST /api/events` | join/approve as anyone | actor = session (organizer checks still apply) |
+| `/api/secret-admirers`, `/api/wingman` | act/read as anyone | session + party/recipient checks |
+| `GET /api/badges`, `/api/blocks`, `POST /api/reports` | keyed on client id | session only |
+| `POST /api/upload` | unauthenticated uploads | requires a session |
+| `POST /api/auth/register` | created users with a **client-chosen id** (no auth) | **route removed** (was unused) |
 
-**CORS/CSRF:** the app is same-origin (client and API on the same domain), so CORS isn't an issue. The session cookie is `SameSite=Lax`, which mitigates cross-site CSRF for the destructive routes.
+### Verified by test (dev mode, since production cookies are HTTPS-only)
+- Sender spoofing blocked: sending `fromUserId="SPOOF"` / `senderId="SPOOF"` still records the **real session user**.
+- Full social flow intact: A sends request → B is notified → B accepts → connection created → A messages → **B receives it**.
+- Read isolation: user A calling `/api/notifications` gets only A's notifications, never B's.
+- Unauthenticated request → **401**. Outsider deleting someone else's request → **403**.
+
+### Remaining / accepted
+- The client still *sends* `userId`/`senderId` in some bodies; these are now **ignored** server-side (harmless, no client changes required).
+- Password hashing is scrypt (strong). If you prefer, bcrypt/argon2 can be swapped in `src/lib/auth.ts` later.
+- Consider host/CDN-level **rate limiting** (defense-in-depth; not required to launch).
+
+**CORS/CSRF:** same-origin app, so no CORS concerns. Cookie is `SameSite=Lax`, mitigating cross-site CSRF; `HttpOnly` prevents JS/XSS token theft.
 
 ---
 
@@ -157,11 +180,37 @@ For normal web/PWA changes you do **not** rebuild anything on your PC and you do
 ## H. Testing performed
 
 - **Production build:** `next build` completes successfully with all routes. ✅
-- **Auth:** signup → 201 and sets an `HttpOnly` `vybe_session` cookie; login → 200; wrong password → 401. ✅
+- **Auth:** signup → 201 and sets an `HttpOnly` `vybe_session` cookie; login → 200; wrong password → 401; unauthenticated private request → 401. ✅
 - **Data-leak fix:** `GET /api/users` response contains no `password` field. ✅
-- **Authorization:** with a logged-in session, editing **another** user's profile → **403**; editing **own** profile → **200**. ✅
-- **PWA assets:** `manifest.webmanifest`, `sw.js`, `offline.html`, `icons/icon-192.png` all serve 200 from the production server. ✅
+- **Spoofing blocked:** sending `fromUserId`/`senderId="SPOOF"` records the real session user instead. ✅
+- **Read isolation:** user A's `/api/notifications` returns only A's notifications, never another user's. ✅
+- **Authorization:** editing/deleting another user's profile → **403**; own → **200**. Outsider deleting someone else's request → **403**. ✅
+- **End-to-end social flow:** A sends request → B notified → B accepts → connection created → A messages → B receives it. ✅
+- **PWA assets:** `manifest.webmanifest`, `sw.js`, `offline.html`, `icons/icon-192.png` all serve 200. ✅
 - **Cleanup:** all temporary test accounts created during testing were deleted.
+
+---
+
+## I. Upload / storage status
+
+- **Where images live:** `src/lib/storage.ts` (the single source of truth). Images are **files in cloud object storage**, not in the database and not base64.
+  - On **Netlify** (`process.env.NETLIFY` present) → **Netlify Blobs** (persistent), served via `/api/uploads/[filename]`.
+  - **Locally** (dev) → `public/uploads/` on disk, served at `/uploads/[filename]`.
+- **Uploads now require a signed-in session** (`POST /api/upload` calls `requireUserId()`).
+- **Vercel caveat:** Vercel is not Netlify, so the code would fall back to the local-disk branch, and Vercel's filesystem is **ephemeral** — uploaded images would disappear on redeploy/scale. On Vercel you'd need an external blob store (Vercel Blob or S3) wired into `storage.ts`. **On Netlify no extra service is needed.**
+
+---
+
+## J. Deployment recommendation — Netlify (for THIS project)
+
+**Recommended: Netlify.** Reasons specific to VYBE:
+1. **Image uploads work with zero extra services.** The upload layer already integrates Netlify Blobs; on Vercel you'd have to add and wire a separate blob store before uploads would persist.
+2. The repo already ships `netlify.toml` + `@netlify/plugin-nextjs`, so it's import-and-deploy.
+3. Everything else (Next.js server routes, env vars, HTTPS, GitHub auto-deploy, PWA over HTTPS) is equivalent on both.
+
+Choose **Vercel** only if you specifically prefer it — in which case tell me and I'll add persistent blob storage to `src/lib/storage.ts` first (otherwise uploaded pictures won't survive redeploys).
+
+Everything else — the Turso database, sessions, and the PWA — behaves identically on either host.
 
 ---
 
