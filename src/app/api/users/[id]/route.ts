@@ -29,9 +29,9 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   const body = await request.json();
   const db = await getDb();
 
-  // If a verified session exists it MUST match the target user (blocks editing others' profiles).
+  // Must be logged in AND editing your own profile.
   const sessionUserId = await getSessionUserId();
-  if (sessionUserId && sessionUserId !== id) {
+  if (!sessionUserId || sessionUserId !== id) {
     return NextResponse.json({ error: 'Not authorized' }, { status: 403 });
   }
 
@@ -92,7 +92,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
 
   // Deleting an account is destructive — require a verified session matching the target.
   const sessionUserId = await getSessionUserId();
-  if (sessionUserId && sessionUserId !== id) {
+  if (!sessionUserId || sessionUserId !== id) {
     return NextResponse.json({ error: 'Not authorized' }, { status: 403 });
   }
 

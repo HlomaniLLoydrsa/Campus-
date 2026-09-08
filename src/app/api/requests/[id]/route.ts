@@ -67,9 +67,9 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
   const req = await db.prepare('SELECT * FROM connection_requests WHERE id = ?').get(id) as any;
   if (!req) return NextResponse.json({ success: true }); // already gone
 
-  // Only a party to the request may delete it (verified via session when available).
+  // Must be logged in and be a party to the request.
   const sessionUserId = await getSessionUserId();
-  if (sessionUserId && sessionUserId !== req.fromUserId && sessionUserId !== req.toUserId) {
+  if (!sessionUserId || (sessionUserId !== req.fromUserId && sessionUserId !== req.toUserId)) {
     return NextResponse.json({ error: 'Not authorized' }, { status: 403 });
   }
 
