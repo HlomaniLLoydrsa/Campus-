@@ -36,7 +36,8 @@ export type NotificationType =
   | 'secret-admirer'
   | 'game-invitation'
   | 'mention'
-  | 'new-connection';
+  | 'new-connection'
+  | 'badge';
 
 export interface User {
   id: string;

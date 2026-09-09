@@ -2,19 +2,17 @@ import type { Notification } from '@/types';
 
 /**
  * Maps a notification to the route it should navigate to when clicked.
- * Uses relatedType/relatedId set by the backend, with sensible fallbacks by type.
  *
- * Query params are read by the destination pages to focus the right item:
- *   /connections?tab=requests            → open Requests tab
- *   /connections?tab=requests&highlight= → highlight a specific request
- *   /messages?conversation=<id>          → open that conversation
- *   /?post=<id>                          → scroll to / open that post
- *   /explore?game=<id>                   → open that game
+ * Rule: ONLY connection-related notifications (friend/relationship requests and
+ * accepted requests) go to /connections. Everything else goes to its own place,
+ * and anything without a specific destination stays on /notifications.
  */
-export function getNotificationHref(n: Pick<Notification, 'type' | 'relatedId' | 'relatedType'>): string {
+export function getNotificationHref(
+  n: Pick<Notification, 'type' | 'relatedId' | 'relatedType'>
+): string {
   const { type, relatedId, relatedType } = n;
 
-  // Prefer explicit relatedType from backend
+  // Prefer explicit relatedType from the backend when present.
   switch (relatedType) {
     case 'request':
       return relatedId
@@ -30,20 +28,24 @@ export function getNotificationHref(n: Pick<Notification, 'type' | 'relatedId' |
       return relatedId ? `/explore?game=${relatedId}` : '/explore';
   }
 
-  // Fallback by notification type when relatedType is missing (older notifications)
+  // Fall back on the notification type. Only the connection types below reach /connections.
   switch (type) {
+    // Connection-related → Connections page
     case 'friend-request':
     case 'relationship-request':
     case 'request-cancelled':
-      return '/connections?tab=requests';
     case 'friend-accepted':
     case 'relationship-accepted':
     case 'new-connection':
       return '/connections?tab=requests';
+
+    // Messages → Messages page
     case 'new-message':
     case 'group-message':
     case 'event-message':
       return '/messages';
+
+    // Feed/content-related → Home feed
     case 'like':
     case 'comment':
     case 'reply':
@@ -54,11 +56,15 @@ export function getNotificationHref(n: Pick<Notification, 'type' | 'relatedId' |
     case 'event-join-request':
     case 'event-approved':
       return '/';
+
+    // Games → Explore
     case 'game-invitation':
       return '/explore';
+
+    // Badges, wingman, secret-admirer, and anything else → stay on the notifications page.
+    case 'badge':
     case 'wingman-activity':
     case 'secret-admirer':
-      return '/notifications';
     default:
       return '/notifications';
   }

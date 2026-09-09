@@ -136,11 +136,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const pollRealtime = async () => {
     if (!currentUser.id) return;
     try {
-      const [notifsRes, reqsRes, convsRes] = await Promise.all([
+      const [notifsRes, reqsRes, convsRes, storiesRes] = await Promise.all([
         fetch(`/api/notifications?userId=${currentUser.id}`),
         fetch(`/api/requests?userId=${currentUser.id}`),
         fetch(`/api/messages?userId=${currentUser.id}`),
+        fetch('/api/stories'),
       ]);
+      if (storiesRes.ok) { const s = await storiesRes.json(); if (Array.isArray(s)) setStories(s); }
       if (notifsRes.ok) {
         const fresh = await notifsRes.json();
         setNotifications(prev => {
@@ -512,6 +514,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       if (res.ok) {
         const story = await res.json();
         setStories(prev => [story, ...prev]);
+        // Re-sync from the server so the stored image URL is authoritative
+        // (fixes the poster seeing a plain color instead of their own image).
+        fetch('/api/stories').then(r => r.ok ? r.json() : null).then(fresh => { if (Array.isArray(fresh)) setStories(fresh); }).catch(() => {});
       }
     } catch { /* ignore */ }
   }, [currentUser.id]);

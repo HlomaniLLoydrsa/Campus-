@@ -118,7 +118,7 @@ function EditProfileModal({ onClose }: { onClose: () => void }) {
 
   const uploadFile = async (file: File): Promise<string | null> => {
     const fd = new FormData(); fd.append('file', file);
-    try { const r = await fetch('/api/upload', { method: 'POST', body: fd }); if (r.ok) { return (await r.json()).url; } } catch {} return null;
+    try { const r = await fetch('/api/upload', { method: 'POST', body: fd, credentials: 'include' }); if (r.ok) { return (await r.json()).url; } } catch {} return null;
   };
 
   const handleSave = async () => {
@@ -131,8 +131,18 @@ function EditProfileModal({ onClose }: { onClose: () => void }) {
     if (avatarFile) { const u = await uploadFile(avatarFile); if (u) avatarUrl = u; }
     if (coverFile) { const u = await uploadFile(coverFile); if (u) coverUrl = u; }
     try {
-      const res = await fetch(`/api/users/${currentUser.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: form.name.trim(), username: form.username.trim(), bio: form.bio.trim(), avatar: avatarUrl, coverImage: coverUrl, course: form.course.trim(), faculty: form.faculty.trim(), yearOfStudy: Number(form.yearOfStudy) || 1, interests: form.interests.split(',').map(s => s.trim()).filter(Boolean), hobbies: form.hobbies.split(',').map(s => s.trim()).filter(Boolean) }) });
-      if (!res.ok) { const d = await res.json(); setError(d.error || 'Failed to save'); setSaving(false); return; }
+      const res = await fetch(`/api/users/${currentUser.id}`, { method: 'PATCH', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: form.name.trim(), username: form.username.trim(), bio: form.bio.trim(), avatar: avatarUrl, coverImage: coverUrl, course: form.course.trim(), faculty: form.faculty.trim(), yearOfStudy: Number(form.yearOfStudy) || 1, interests: form.interests.split(',').map(s => s.trim()).filter(Boolean), hobbies: form.hobbies.split(',').map(s => s.trim()).filter(Boolean) }) });
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        // A 401/403 means the session cookie is missing or stale (e.g. logged in before sessions existed).
+        if (res.status === 401 || res.status === 403) {
+          setError('Your session expired. Please log out and log back in, then try again.');
+        } else {
+          setError(d.error || 'Failed to save');
+        }
+        setSaving(false);
+        return;
+      }
       const stored = localStorage.getItem('campus_user');
       if (stored) { const u = JSON.parse(stored); Object.assign(u, { name: form.name.trim(), username: form.username.trim(), avatar: avatarUrl, coverImage: coverUrl, bio: form.bio.trim(), course: form.course.trim(), faculty: form.faculty.trim(), yearOfStudy: Number(form.yearOfStudy), interests: form.interests.split(',').map((s: string) => s.trim()).filter(Boolean), hobbies: form.hobbies.split(',').map((s: string) => s.trim()).filter(Boolean) }); localStorage.setItem('campus_user', JSON.stringify(u)); }
       window.location.reload();
@@ -143,7 +153,7 @@ function EditProfileModal({ onClose }: { onClose: () => void }) {
     if (!window.confirm('Delete your account permanently? This removes your profile, posts, and messages and cannot be undone.')) return;
     setDeleting(true);
     try {
-      const res = await fetch(`/api/users/${currentUser.id}`, { method: 'DELETE' });
+      const res = await fetch(`/api/users/${currentUser.id}`, { method: 'DELETE', credentials: 'include' });
       if (!res.ok) { setError('Could not delete account'); setDeleting(false); return; }
       logout();
       router.push('/welcome');

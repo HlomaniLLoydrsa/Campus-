@@ -7,8 +7,9 @@ import React, { useState } from 'react';
  * Falls back to /images/logo.svg (a simple placeholder) if logo.png is missing.
  */
 export default function Logo({ size = 36, className = '' }: { size?: number; className?: string }) {
-  // Try common logo filenames in order, falling back to the placeholder SVG.
-  const candidates = ['/images/logo.png', '/images/logo.jpg', '/images/logo.svg'];
+  // Use the real logo (logo.jpg) directly; fall back to the placeholder SVG only if it's missing.
+  // Starting on the file that actually exists avoids a failed request that caused a flicker on navigation.
+  const candidates = ['/images/logo.jpg', '/images/logo.svg'];
   const [idx, setIdx] = useState(0);
   const src = candidates[idx];
   return (

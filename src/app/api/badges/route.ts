@@ -95,7 +95,7 @@ export async function GET() {
         await db.prepare('INSERT OR IGNORE INTO badges (userId, badgeId, earnedAt) VALUES (?, ?, ?)').run(userId, def.id, earnedAt);
         // Notify user of new badge — wrapped so a notification failure never breaks the endpoint
         const nid = `n_${Date.now()}_${def.id}`;
-        await db.prepare('INSERT OR IGNORE INTO notifications (id, userId, type, message, read) VALUES (?, ?, ?, ?, 0)').run(nid, userId, 'new-connection', `You earned the ${def.emoji} ${def.name} badge!`);
+        await db.prepare('INSERT OR IGNORE INTO notifications (id, userId, type, message, read) VALUES (?, ?, ?, ?, 0)').run(nid, userId, 'badge', `You earned the ${def.emoji} ${def.name} badge!`);
       } catch {
         // ignore — badge display still works from computed `qualifies`
       }
