@@ -200,6 +200,9 @@ export interface Game {
   participants: string[];
   createdAt: string;
   data: WouldYouRatherData | NeverHaveIEverData | TwoTruthsOneLieData;
+  /** 'public' = play with anyone (shows in shared list); 'private' = sent to one friend's inbox. */
+  visibility?: 'public' | 'private';
+  targetUserId?: string | null;
 }
 
 export interface WouldYouRatherData {

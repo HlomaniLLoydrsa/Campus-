@@ -10,7 +10,9 @@ import Avatar from '@/components/Avatar';
 import { useApp } from '@/context/AppContext';
 import { Heart, Eye, Sparkles, Users, Zap, X, TrendingUp, Calendar, HelpCircle, Megaphone, Gamepad2, Flame, Compass } from 'lucide-react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { formatTimeAgo } from '@/lib/utils';
+import GameBuilder from '@/components/games/GameBuilder';
 
 interface GameCard {
   id: string;
@@ -43,10 +45,38 @@ const TABS = [
 ];
 
 export default function ExplorePage() {
-  const { games, users, posts, currentUser, connections, getConnectionStatus } = useApp();
+  const { games, users, posts, currentUser, connections, getConnectionStatus, createGame } = useApp();
+  const router = useRouter();
   const [selectedCard, setSelectedCard] = useState<string | null>(null);
-  const [playMode, setPlayMode] = useState<'friend' | 'random' | null>(null);
+  const [playMode, setPlayMode] = useState<'friend' | 'anyone' | null>(null);
+  const [chosenFriend, setChosenFriend] = useState<{ id: string; name: string } | null>(null);
+  const [creating, setCreating] = useState(false);
   const [tab, setTab] = useState('discover');
+
+  const isGameType = (id: string): id is 'would-you-rather' | 'never-have-i-ever' | 'two-truths-one-lie' =>
+    id === 'would-you-rather' || id === 'never-have-i-ever' || id === 'two-truths-one-lie';
+
+  const closeGameModal = () => { setSelectedCard(null); setPlayMode(null); setChosenFriend(null); setCreating(false); };
+
+  // Create a public game (play with anyone) then open the shared list.
+  const createAnyoneGame = async (title: string, data: any) => {
+    if (!selectedCard || !isGameType(selectedCard)) return;
+    setCreating(true);
+    const id = await createGame(selectedCard, title, data, { visibility: 'public' });
+    setCreating(false);
+    closeGameModal();
+    if (id) router.push('/games');
+  };
+
+  // Create a private game and send it to the chosen friend's inbox.
+  const createFriendGame = async (title: string, data: any) => {
+    if (!selectedCard || !isGameType(selectedCard) || !chosenFriend) return;
+    setCreating(true);
+    await createGame(selectedCard, title, data, { visibility: 'private', targetUserId: chosenFriend.id });
+    setCreating(false);
+    closeGameModal();
+    router.push('/messages');
+  };
 
   const myFriends = (connections[currentUser.id] || []).map(id => users.find(u => u.id === id)).filter(Boolean);
   const activeGames = games.filter(g => g.status === 'active');
@@ -133,11 +163,10 @@ export default function ExplorePage() {
               {/* Campus Activity strip */}
               <div className="card p-4 mt-5 bg-gradient-to-r from-orange-50 to-pink-50 border-orange-100">
                 <h3 className="font-bold text-sm flex items-center gap-2 mb-3"><Flame size={16} className="text-orange-500" /> Campus Activity</h3>
-                <div className="grid grid-cols-2 gap-3 text-center">
+                <div className="grid grid-cols-3 gap-3 text-center">
                   <div><p className="text-xl font-bold text-campus-primary">{posts.length}</p><p className="text-[11px] text-gray-500">Posts today</p></div>
                   <div><p className="text-xl font-bold text-campus-accent">{activeGames.length}</p><p className="text-[11px] text-gray-500">Live games</p></div>
                   <div><p className="text-xl font-bold text-green-500">{events.length}</p><p className="text-[11px] text-gray-500">Events</p></div>
-                  <div><p className="text-xl font-bold text-blue-500">{users.length}</p><p className="text-[11px] text-gray-500">Students</p></div>
                 </div>
               </div>
             </>
@@ -238,37 +267,49 @@ export default function ExplorePage() {
             </div>
           )}
 
-          {/* Play mode modal */}
-          {selectedCard && (
-            <div className="fixed inset-0 bg-black/60 z-50 flex items-end sm:items-center justify-center p-4">
-              <div className="bg-white rounded-2xl w-full max-w-sm p-6 animate-slide-up">
-                <div className="flex items-center justify-between mb-5">
+          {/* Play mode modal — scrollable so nothing is cut off */}
+          {selectedCard && isGameType(selectedCard) && (
+            <div className="fixed inset-0 bg-black/60 z-50 flex items-end sm:items-center justify-center p-3 sm:p-4">
+              <div className="bg-white rounded-2xl w-full max-w-sm max-h-[88vh] overflow-y-auto p-5 sm:p-6 animate-slide-up">
+                <div className="flex items-center justify-between mb-4">
                   <h3 className="font-bold text-lg">
                     {selectedCard === 'would-you-rather' ? '🤔 Would You Rather' : selectedCard === 'never-have-i-ever' ? '🙈 Never Have I Ever' : '🎭 Two Truths, One Lie'}
                   </h3>
-                  <button onClick={() => { setSelectedCard(null); setPlayMode(null); }} className="p-1 rounded-lg hover:bg-gray-100"><X size={20} /></button>
+                  <button onClick={closeGameModal} className="p-1 rounded-lg hover:bg-gray-100"><X size={20} /></button>
                 </div>
-                {!playMode ? (
+
+                {/* Step 1: choose mode */}
+                {!playMode && (
                   <div className="space-y-3">
-                    <p className="text-sm text-gray-600 mb-4">How would you like to play?</p>
-                    <button onClick={() => setPlayMode('friend')} className="w-full p-4 rounded-xl border-2 border-gray-200 hover:border-campus-primary hover:bg-campus-primary/5 transition-all text-left">
-                      <div className="flex items-center gap-3"><div className="w-10 h-10 rounded-full bg-campus-primary/10 flex items-center justify-center"><Users size={20} className="text-campus-primary" /></div><div><p className="font-semibold text-sm">Play with a Friend</p><p className="text-xs text-gray-500">Invite a friend to play together</p></div></div>
+                    <p className="text-sm text-gray-600 mb-2">How would you like to play?</p>
+                    <button onClick={() => setPlayMode('anyone')} className="w-full p-4 rounded-xl border-2 border-gray-200 hover:border-campus-accent hover:bg-campus-accent/5 transition-all text-left">
+                      <div className="flex items-center gap-3"><div className="w-10 h-10 rounded-full bg-campus-accent/10 flex items-center justify-center"><Zap size={20} className="text-campus-accent" /></div><div><p className="font-semibold text-sm">Play with Anyone</p><p className="text-xs text-gray-500">Post it publicly — anyone online can play</p></div></div>
                     </button>
-                    <Link href="/games" onClick={() => setSelectedCard(null)} className="block w-full p-4 rounded-xl border-2 border-gray-200 hover:border-campus-accent hover:bg-campus-accent/5 transition-all text-left">
-                      <div className="flex items-center gap-3"><div className="w-10 h-10 rounded-full bg-campus-accent/10 flex items-center justify-center"><Zap size={20} className="text-campus-accent" /></div><div><p className="font-semibold text-sm">Play with Anyone</p><p className="text-xs text-gray-500">Join a game with people online</p></div></div>
-                    </Link>
+                    <button onClick={() => setPlayMode('friend')} className="w-full p-4 rounded-xl border-2 border-gray-200 hover:border-campus-primary hover:bg-campus-primary/5 transition-all text-left">
+                      <div className="flex items-center gap-3"><div className="w-10 h-10 rounded-full bg-campus-primary/10 flex items-center justify-center"><Users size={20} className="text-campus-primary" /></div><div><p className="font-semibold text-sm">Play with a Friend</p><p className="text-xs text-gray-500">Send it straight to a friend&apos;s inbox</p></div></div>
+                    </button>
                   </div>
-                ) : playMode === 'friend' ? (
+                )}
+
+                {/* Step 2 (anyone): build the game, then create publicly */}
+                {playMode === 'anyone' && (
+                  <div>
+                    <p className="text-sm text-gray-600 mb-3">Set up your game — anyone can join and respond.</p>
+                    <GameBuilder type={selectedCard} submitLabel={creating ? 'Creating…' : 'Create Game'} onBack={() => setPlayMode(null)} onSubmit={createAnyoneGame} />
+                  </div>
+                )}
+
+                {/* Step 2 (friend): pick a friend */}
+                {playMode === 'friend' && !chosenFriend && (
                   <div className="space-y-3">
-                    <p className="text-sm text-gray-600 mb-2">Select a friend to play with:</p>
+                    <p className="text-sm text-gray-600 mb-1">Send to which friend?</p>
                     {myFriends.length > 0 ? (
                       <div className="max-h-60 overflow-y-auto space-y-2">
                         {myFriends.map(friend => friend && (
-                          <Link href="/games" key={friend.id} onClick={() => setSelectedCard(null)} className="flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 transition-colors border border-gray-100">
+                          <button key={friend.id} onClick={() => setChosenFriend({ id: friend.id, name: friend.name })} className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 transition-colors border border-gray-100 text-left">
                             <Avatar src={friend.avatar} name={friend.name} size={40} />
-                            <div className="flex-1"><p className="font-medium text-sm">{friend.name}</p><p className="text-xs text-gray-500">@{friend.username}</p></div>
-                            <span className="text-xs text-campus-primary font-medium">Invite</span>
-                          </Link>
+                            <div className="flex-1 min-w-0"><p className="font-medium text-sm truncate">{friend.name}</p><p className="text-xs text-gray-500 truncate">@{friend.username}</p></div>
+                          </button>
                         ))}
                       </div>
                     ) : (
@@ -276,7 +317,15 @@ export default function ExplorePage() {
                     )}
                     <button onClick={() => setPlayMode(null)} className="btn-secondary w-full text-sm">Back</button>
                   </div>
-                ) : null}
+                )}
+
+                {/* Step 3 (friend): build the game, then send to their inbox */}
+                {playMode === 'friend' && chosenFriend && (
+                  <div>
+                    <p className="text-sm text-gray-600 mb-3">Set up your game for <span className="font-semibold">{chosenFriend.name}</span> — it goes straight to their inbox.</p>
+                    <GameBuilder type={selectedCard} submitLabel={creating ? 'Sending…' : `Send to ${chosenFriend.name.split(' ')[0]}`} onBack={() => setChosenFriend(null)} onSubmit={createFriendGame} />
+                  </div>
+                )}
               </div>
             </div>
           )}

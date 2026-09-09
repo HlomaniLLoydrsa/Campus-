@@ -200,6 +200,8 @@ async function initializeDb() {
       status TEXT DEFAULT 'active',
       participants TEXT DEFAULT '[]',
       data TEXT NOT NULL DEFAULT '{}',
+      visibility TEXT DEFAULT 'public',
+      targetUserId TEXT,
       createdAt TEXT DEFAULT (datetime('now'))
     );
 
@@ -284,6 +286,9 @@ async function initializeDb() {
   await ensureColumn(c, 'notifications', 'relatedType', 'TEXT');
   // ownerId always stores the real author (even for anonymous posts) so the owner can manage them.
   await ensureColumn(c, 'posts', 'ownerId', 'TEXT');
+  // Games can be public (play with anyone) or private (sent to one friend's inbox).
+  await ensureColumn(c, 'games', 'visibility', 'TEXT');
+  await ensureColumn(c, 'games', 'targetUserId', 'TEXT');
 }
 
 async function ensureColumn(c: Client, table: string, column: string, type: string) {

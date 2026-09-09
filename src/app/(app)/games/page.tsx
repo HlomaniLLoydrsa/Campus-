@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import Sidebar from '@/components/layout/Sidebar';
 import BottomNav from '@/components/layout/BottomNav';
 import TopBar from '@/components/layout/TopBar';
@@ -10,12 +11,41 @@ import { formatTimeAgo } from '@/lib/utils';
 import { WouldYouRatherData, NeverHaveIEverData, TwoTruthsOneLieData, Game } from '@/types';
 
 export default function GamesPage() {
-  const { games, currentUser, getUserById, createGame, voteWouldYouRather, voteNeverHaveIEver, guessTwoTruths, revealTwoTruths } = useApp();
+  return (
+    <Suspense fallback={null}>
+      <GamesContent />
+    </Suspense>
+  );
+}
+
+function GamesContent() {
+  const { games, currentUser, getUserById, createGame, deleteGame, voteWouldYouRather, voteNeverHaveIEver, guessTwoTruths, revealTwoTruths } = useApp();
+  const searchParams = useSearchParams();
   const [selectedGame, setSelectedGame] = useState<string | null>(null);
   const [showCreate, setShowCreate] = useState(false);
+  // A private (friend) game opened from the inbox — fetched individually since it's not in the public list.
+  const [privateGame, setPrivateGame] = useState<Game | null>(null);
+
+  const respondersOf = (g: Game): string[] => {
+    // Everyone who has interacted with the game (participants minus the creator).
+    return (g.participants || []).filter(id => id !== g.creatorId);
+  };
 
   const activeGames = games.filter(g => g.status === 'active');
-  const selected = games.find(g => g.id === selectedGame);
+
+  // Open a specific game (e.g. a private one from the inbox) via ?open=<id>
+  useEffect(() => {
+    const openId = searchParams.get('open');
+    if (!openId) return;
+    const inList = games.find(g => g.id === openId);
+    if (inList) { setSelectedGame(openId); return; }
+    // Not in the public list → fetch it directly (private friend game).
+    fetch(`/api/games/${openId}`).then(r => r.ok ? r.json() : null).then(g => {
+      if (g && g.id) { setPrivateGame(g); setSelectedGame(g.id); }
+    }).catch(() => {});
+  }, [searchParams, games]);
+
+  const selected = games.find(g => g.id === selectedGame) || (privateGame && privateGame.id === selectedGame ? privateGame : undefined);
 
   return (
     <div className="flex min-h-screen">
@@ -89,9 +119,44 @@ export default function GamesPage() {
           {/* Game detail view */}
           {selected && (
             <div className="animate-fade-in">
-              <button onClick={() => setSelectedGame(null)} className="flex items-center gap-1 text-sm text-campus-primary font-medium mb-4 hover:underline">
-                <ArrowLeft size={14} /> Back to games
-              </button>
+              <div className="flex items-center justify-between mb-4">
+                <button onClick={() => setSelectedGame(null)} className="flex items-center gap-1 text-sm text-campus-primary font-medium hover:underline">
+                  <ArrowLeft size={14} /> Back to games
+                </button>
+                {selected.creatorId === currentUser.id && (
+                  <button
+                    onClick={() => { if (confirm('Delete this game? This cannot be undone.')) { deleteGame(selected.id); setSelectedGame(null); } }}
+                    className="flex items-center gap-1 text-sm text-red-600 font-medium hover:underline"
+                  >
+                    <Trash2 size={14} /> Delete
+                  </button>
+                )}
+              </div>
+
+              {/* Creator: who responded */}
+              {selected.creatorId === currentUser.id && (() => {
+                const responders = respondersOf(selected);
+                return (
+                  <div className="card p-4 mb-4">
+                    <p className="text-sm font-semibold mb-2">Responses ({responders.length})</p>
+                    {responders.length === 0 ? (
+                      <p className="text-xs text-gray-400">No one has responded yet.</p>
+                    ) : (
+                      <div className="flex flex-wrap gap-2">
+                        {responders.map(rid => {
+                          const u = getUserById(rid);
+                          return (
+                            <span key={rid} className="flex items-center gap-1.5 bg-gray-50 border border-gray-100 rounded-full pl-1 pr-3 py-1">
+                              {u?.avatar ? <img src={u.avatar} alt="" className="w-6 h-6 rounded-full object-cover" /> : <span className="w-6 h-6 rounded-full bg-campus-primary/10 flex items-center justify-center text-[10px] font-bold text-campus-primary">{(u?.name || '?')[0]}</span>}
+                              <span className="text-xs font-medium">{u?.name || 'Someone'}</span>
+                            </span>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
 
               {/* WOULD YOU RATHER */}
               {selected.type === 'would-you-rather' && (() => {

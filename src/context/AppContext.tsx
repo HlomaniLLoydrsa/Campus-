@@ -34,7 +34,8 @@ interface AppContextType {
   markAllNotificationsRead: () => void;
   addNotification: (notification: Omit<Notification, 'id' | 'createdAt'>) => void;
   games: Game[];
-  createGame: (type: Game['type'], title: string, data: any) => Promise<string | null>;
+  createGame: (type: Game['type'], title: string, data: any, opts?: { visibility?: 'public' | 'private'; targetUserId?: string }) => Promise<string | null>;
+  deleteGame: (gameId: string) => void;
   voteWouldYouRather: (gameId: string, option: 'A' | 'B') => void;
   voteNeverHaveIEver: (gameId: string, statementIndex: number, response: 'iHave' | 'iHaveNot') => void;
   guessTwoTruths: (gameId: string, guessIndex: number) => void;
@@ -129,20 +130,25 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // Realtime polling — refresh notifications, requests, and conversations every 4s
   useEffect(() => {
     if (!currentUser.id) return;
-    const interval = setInterval(() => { pollRealtime(); }, 4000);
+    // Poll every 2s for a near real-time feel across notifications, messages, requests, stories, games, posts.
+    const interval = setInterval(() => { pollRealtime(); }, 2000);
     return () => clearInterval(interval);
   }, [currentUser.id]);
 
   const pollRealtime = async () => {
     if (!currentUser.id) return;
     try {
-      const [notifsRes, reqsRes, convsRes, storiesRes] = await Promise.all([
+      const [notifsRes, reqsRes, convsRes, storiesRes, gamesRes, postsRes] = await Promise.all([
         fetch(`/api/notifications?userId=${currentUser.id}`),
         fetch(`/api/requests?userId=${currentUser.id}`),
         fetch(`/api/messages?userId=${currentUser.id}`),
         fetch('/api/stories'),
+        fetch('/api/games'),
+        fetch('/api/posts'),
       ]);
       if (storiesRes.ok) { const s = await storiesRes.json(); if (Array.isArray(s)) setStories(s); }
+      if (gamesRes.ok) { const g = await gamesRes.json(); if (Array.isArray(g)) setGames(g); }
+      if (postsRes.ok) { const p = await postsRes.json(); if (Array.isArray(p)) setPosts(p); }
       if (notifsRes.ok) {
         const fresh = await notifsRes.json();
         setNotifications(prev => {
@@ -341,17 +347,23 @@ export function AppProvider({ children }: { children: ReactNode }) {
     return tempId;
   }, [currentUser.id]);
 
-  const createGame = useCallback(async (type: Game['type'], title: string, data: any): Promise<string | null> => {
+  const createGame = useCallback(async (type: Game['type'], title: string, data: any, opts?: { visibility?: 'public' | 'private'; targetUserId?: string }): Promise<string | null> => {
     try {
-      const res = await fetch('/api/games', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type, creatorId: currentUser.id, title, data }) });
+      const res = await fetch('/api/games', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type, creatorId: currentUser.id, title, data, visibility: opts?.visibility || 'public', targetUserId: opts?.targetUserId }) });
       if (res.ok) {
         const game = await res.json();
-        setGames(prev => [game, ...prev]);
+        // Only public games belong in the shared list; private ones live in the friend's inbox.
+        if ((game.visibility || 'public') === 'public') setGames(prev => [game, ...prev]);
         return game.id;
       }
     } catch {}
     return null;
   }, [currentUser.id]);
+
+  const deleteGame = useCallback((gameId: string) => {
+    setGames(prev => prev.filter(g => g.id !== gameId));
+    fetch(`/api/games?gameId=${gameId}`, { method: 'DELETE' }).catch(() => {});
+  }, []);
 
   const voteWouldYouRather = useCallback((gameId: string, option: 'A' | 'B') => {
     setGames(prev => prev.map(g => {
@@ -531,7 +543,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       sendRequest, cancelRequest, acceptRequest, rejectRequest, removeFriend, getConnectionStatus, getRequestForUser, isConnected,
       conversations, sendMessage, createConversation, getOrCreateDirectConversation, markConversationRead,
       notifications, unreadNotificationCount, markNotificationRead, markAllNotificationsRead, addNotification,
-      games, createGame, voteWouldYouRather, voteNeverHaveIEver, guessTwoTruths, revealTwoTruths,
+      games, createGame, deleteGame, voteWouldYouRather, voteNeverHaveIEver, guessTwoTruths, revealTwoTruths,
       secretAdmirers, sendSecretAdmirer, respondToAdmirer,
       wingmanSuggestions, sendWingmanSuggestion, respondToWingman,
       respondToISawYou, joinEvent, leaveEvent, approveEventJoin, rejectEventJoin,

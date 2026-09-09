@@ -108,10 +108,13 @@ function EditProfileModal({ onClose }: { onClose: () => void }) {
     const file = e.target.files?.[0];
     if (!file) return;
     if (file.size > 10 * 1024 * 1024) { setError('Image must be less than 10MB'); return; }
+    // Set the file synchronously so it's guaranteed present when Save runs,
+    // even if the user clicks Save immediately. The preview loads separately.
+    if (type === 'avatar') setAvatarFile(file); else setCoverFile(file);
     const reader = new FileReader();
     reader.onload = (ev) => {
-      if (type === 'avatar') { setAvatarFile(file); setAvatarPreview(ev.target?.result as string); }
-      else { setCoverFile(file); setCoverPreview(ev.target?.result as string); }
+      if (type === 'avatar') setAvatarPreview(ev.target?.result as string);
+      else setCoverPreview(ev.target?.result as string);
     };
     reader.readAsDataURL(file);
   };
@@ -128,8 +131,16 @@ function EditProfileModal({ onClose }: { onClose: () => void }) {
     setSaving(true);
     let avatarUrl = currentUser.avatar || '';
     let coverUrl = currentUser.coverImage || '';
-    if (avatarFile) { const u = await uploadFile(avatarFile); if (u) avatarUrl = u; }
-    if (coverFile) { const u = await uploadFile(coverFile); if (u) coverUrl = u; }
+    if (avatarFile) {
+      const u = await uploadFile(avatarFile);
+      if (!u) { setError('Could not upload your profile photo. Please try again.'); setSaving(false); return; }
+      avatarUrl = u;
+    }
+    if (coverFile) {
+      const u = await uploadFile(coverFile);
+      if (!u) { setError('Could not upload your cover photo. Please try again.'); setSaving(false); return; }
+      coverUrl = u;
+    }
     try {
       const res = await fetch(`/api/users/${currentUser.id}`, { method: 'PATCH', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: form.name.trim(), username: form.username.trim(), bio: form.bio.trim(), avatar: avatarUrl, coverImage: coverUrl, course: form.course.trim(), faculty: form.faculty.trim(), yearOfStudy: Number(form.yearOfStudy) || 1, interests: form.interests.split(',').map(s => s.trim()).filter(Boolean), hobbies: form.hobbies.split(',').map(s => s.trim()).filter(Boolean) }) });
       if (!res.ok) {

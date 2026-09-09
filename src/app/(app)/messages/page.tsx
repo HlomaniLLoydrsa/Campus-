@@ -26,9 +26,15 @@ function MessagesContent() {
   const [messageText, setMessageText] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [showNewGroup, setShowNewGroup] = useState(false);
+  const [photoLightbox, setPhotoLightbox] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const selectedConversation = conversations.find(c => c.id === selectedConv);
+
+  // The other person in a direct chat (used to open their profile / photo)
+  const otherUserId = selectedConversation && selectedConversation.type === 'direct'
+    ? selectedConversation.participants.find(p => p !== currentUser.id) || null
+    : null;
 
   // Open a conversation when arriving from a message notification
   useEffect(() => {
@@ -141,13 +147,24 @@ function MessagesContent() {
                 <div className="flex items-center gap-3 p-4 border-b border-gray-100">
                   <button onClick={() => setSelectedConv(null)} className="md:hidden p-1 rounded-lg hover:bg-gray-100"><ArrowLeft size={20} /></button>
                   {getConversationAvatar(selectedConversation) ? (
-                    <img src={getConversationAvatar(selectedConversation)!} alt="" className="w-10 h-10 rounded-full object-cover" />
+                    <img
+                      src={getConversationAvatar(selectedConversation)!}
+                      alt=""
+                      onClick={() => { const a = getConversationAvatar(selectedConversation); if (a) setPhotoLightbox(a); }}
+                      className="w-10 h-10 rounded-full object-cover cursor-pointer"
+                    />
                   ) : (
                     <div className="w-10 h-10 rounded-full bg-gradient-to-br from-campus-primary to-campus-accent flex items-center justify-center"><Users size={18} className="text-white" /></div>
                   )}
                   <div>
-                    <p className="font-semibold text-sm">{getConversationName(selectedConversation)}</p>
-                    <p className="text-xs text-gray-500">{selectedConversation.type === 'direct' ? '' : `${selectedConversation.participants.length} members`}</p>
+                    {otherUserId ? (
+                      <button onClick={() => router.push(`/profile/${otherUserId}`)} className="font-semibold text-sm hover:text-campus-primary text-left">
+                        {getConversationName(selectedConversation)}
+                      </button>
+                    ) : (
+                      <p className="font-semibold text-sm">{getConversationName(selectedConversation)}</p>
+                    )}
+                    <p className="text-xs text-gray-500">{selectedConversation.type === 'direct' ? 'Tap name to view profile' : `${selectedConversation.participants.length} members`}</p>
                   </div>
                 </div>
 
@@ -174,6 +191,18 @@ function MessagesContent() {
                                     className={`text-sm text-left underline decoration-dotted ${isOwn ? 'text-white' : 'text-campus-primary'}`}
                                   >
                                     {label || 'View shared post'}
+                                  </button>
+                                );
+                              }
+                              const gameMatch = msg.content.match(/^\[game:([^\]]+)\]\s*([\s\S]*)$/);
+                              if (gameMatch) {
+                                const [, gameId, label] = gameMatch;
+                                return (
+                                  <button
+                                    onClick={() => router.push(`/games?open=${gameId}`)}
+                                    className={`text-sm text-left underline decoration-dotted font-medium ${isOwn ? 'text-white' : 'text-campus-primary'}`}
+                                  >
+                                    {label || 'Open game'}
                                   </button>
                                 );
                               }
@@ -223,6 +252,14 @@ function MessagesContent() {
             onClose={() => setShowNewGroup(false)}
             onCreate={(name, ids) => { const id = createConversation(ids, name, 'group'); setShowNewGroup(false); setSelectedConv(id); }}
           />
+        )}
+
+        {/* Profile photo lightbox */}
+        {photoLightbox && (
+          <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4" onClick={() => setPhotoLightbox(null)}>
+            <button onClick={() => setPhotoLightbox(null)} className="absolute top-4 right-4 text-white p-2"><X size={26} /></button>
+            <img src={photoLightbox} alt="" className="max-h-[85vh] max-w-[90vw] object-contain rounded-2xl" onClick={(e) => e.stopPropagation()} />
+          </div>
         )}
       </main>
       <BottomNav />
