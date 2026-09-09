@@ -79,10 +79,30 @@
   }
 }
 
-/* Prevent accidental horizontal scrolling on small phones (320px+) */
+/* Prevent accidental horizontal scrolling / content overflow on small phones (320px+) */
 html, body {
+  width: 100%;
   max-width: 100%;
   overflow-x: hidden;
+}
+
+/* Never let the whole page grow wider than the screen. The app uses a
+   flex row (Sidebar + main); on phones the Sidebar is hidden, and this
+   keeps <main> from stretching past the viewport when a child is too wide. */
+body > * {
+  max-width: 100vw;
+}
+
+/* Long unbroken strings (URLs, usernames) shouldn't push layout wide */
+p, span, h1, h2, h3, a {
+  overflow-wrap: anywhere;
+}
+
+/* Flexbox overflow fix: every page is `flex > main.flex-1`. Without min-width:0
+   a wide child (grids, chip rows) makes <main> overflow past the viewport,
+   which cuts off content on the right. This keeps <main> within the screen. */
+main.flex-1 {
+  min-width: 0;
 }
 
 /* Comfortable minimum tap targets on touch devices */
