@@ -10,7 +10,7 @@ import PostCard from '@/components/posts/PostCard';
 import ConnectActions from '@/components/connections/ConnectActions';
 import Avatar from '@/components/Avatar';
 import { useApp } from '@/context/AppContext';
-import { Plus, X, ImageIcon, ChevronLeft, ChevronRight, TrendingUp, Gamepad2, Calendar, Compass } from 'lucide-react';
+import { Plus, X, ImageIcon, ChevronLeft, ChevronRight, TrendingUp, Gamepad2, Calendar, Compass, Eye, Send } from 'lucide-react';
 import Link from 'next/link';
 import { formatTimeAgo } from '@/lib/utils';
 import { Story } from '@/types';
@@ -271,12 +271,35 @@ function StoryCreateModal({ onClose, onCreate }: { onClose: () => void; onCreate
 }
 
 function StoryViewer({ stories, user, onClose }: { stories: Story[]; user: any; onClose: () => void }) {
+  const { currentUser, isConnected, viewStory, commentOnStory, getUserById } = useApp();
   const [index, setIndex] = useState(0);
-  if (stories.length === 0 || !user) return null;
+  const [showViewers, setShowViewers] = useState(false);
+  const [commentText, setCommentText] = useState('');
+  const [commentSent, setCommentSent] = useState(false);
   const story = stories[index];
+
+  // Record a view whenever a story is shown (owner's own views aren't counted server-side).
+  useEffect(() => {
+    if (story?.id) viewStory(story.id);
+    setShowViewers(false);
+    setCommentText('');
+    setCommentSent(false);
+  }, [story?.id]);
+
+  if (stories.length === 0 || !user || !story) return null;
+
+  const isOwner = user.id === currentUser.id;
+  const canComment = !isOwner && isConnected(user.id); // only friends can comment
+  const viewers = (story.views || []) as string[];
 
   const next = () => { if (index < stories.length - 1) setIndex(index + 1); else onClose(); };
   const prev = () => { if (index > 0) setIndex(index - 1); };
+
+  const submitComment = async () => {
+    if (!commentText.trim()) return;
+    const ok = await commentOnStory(story.id, commentText.trim());
+    if (ok) { setCommentSent(true); setCommentText(''); setTimeout(() => setCommentSent(false), 1600); }
+  };
 
   return (
     <div className="fixed inset-0 bg-black z-50 flex items-center justify-center">
@@ -307,11 +330,55 @@ function StoryViewer({ stories, user, onClose }: { stories: Story[]; user: any; 
         {story.content && <p className="relative text-white font-semibold text-center px-6 text-xl break-words">{story.content}</p>}
       </div>
 
-      {/* Nav */}
-      <button onClick={prev} className="absolute left-0 top-0 bottom-0 w-1/3" />
-      <button onClick={next} className="absolute right-0 top-0 bottom-0 w-1/3" />
-      {index > 0 && <button onClick={prev} className="absolute left-2 top-1/2 -translate-y-1/2 text-white/70 bg-black/30 rounded-full p-1"><ChevronLeft size={20} /></button>}
-      {index < stories.length - 1 && <button onClick={next} className="absolute right-2 top-1/2 -translate-y-1/2 text-white/70 bg-black/30 rounded-full p-1"><ChevronRight size={20} /></button>}
+      {/* Nav (side tap zones) */}
+      <button onClick={prev} className="absolute left-0 top-16 bottom-24 w-1/4" />
+      <button onClick={next} className="absolute right-0 top-16 bottom-24 w-1/4" />
+      {index > 0 && <button onClick={prev} className="absolute left-2 top-1/2 -translate-y-1/2 text-white/70 bg-black/30 rounded-full p-1 z-10"><ChevronLeft size={20} /></button>}
+      {index < stories.length - 1 && <button onClick={next} className="absolute right-2 top-1/2 -translate-y-1/2 text-white/70 bg-black/30 rounded-full p-1 z-10"><ChevronRight size={20} /></button>}
+
+      {/* Footer: owner sees viewers; friends can comment */}
+      <div className="absolute bottom-0 left-0 right-0 p-4 z-10">
+        {isOwner ? (
+          <button onClick={() => setShowViewers(v => !v)} className="flex items-center gap-2 text-white/90 text-sm bg-black/40 rounded-full px-4 py-2">
+            <Eye size={16} /> {viewers.length} {viewers.length === 1 ? 'view' : 'views'}
+          </button>
+        ) : canComment ? (
+          <div className="flex items-center gap-2">
+            <input
+              value={commentText}
+              onChange={(e) => setCommentText(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && submitComment()}
+              placeholder={commentSent ? 'Sent! 💬' : `Reply to ${user.name.split(' ')[0]}...`}
+              className="flex-1 bg-white/15 border border-white/25 rounded-full px-4 py-2.5 text-sm text-white placeholder-white/60 focus:outline-none"
+            />
+            <button onClick={submitComment} disabled={!commentText.trim()} className="bg-white text-campus-primary rounded-full p-2.5 disabled:opacity-50"><Send size={16} /></button>
+          </div>
+        ) : (
+          <p className="text-center text-white/50 text-xs">Only friends can reply to this story</p>
+        )}
+      </div>
+
+      {/* Owner: who viewed */}
+      {isOwner && showViewers && (
+        <div className="absolute bottom-16 left-3 right-3 max-h-[45vh] overflow-y-auto bg-white rounded-2xl p-4 z-20 max-w-md mx-auto">
+          <p className="font-semibold text-sm mb-3">Viewed by {viewers.length}</p>
+          {viewers.length === 0 ? (
+            <p className="text-sm text-gray-400">No views yet.</p>
+          ) : (
+            <div className="space-y-2">
+              {viewers.map(vid => {
+                const v = getUserById(vid);
+                return (
+                  <div key={vid} className="flex items-center gap-3">
+                    {v?.avatar ? <img src={v.avatar} alt="" className="w-8 h-8 rounded-full object-cover" /> : <div className="w-8 h-8 rounded-full bg-campus-primary/10 flex items-center justify-center text-[10px] font-bold text-campus-primary">{(v?.name || '?')[0]}</div>}
+                    <span className="text-sm">{v?.name || 'Someone'}</span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

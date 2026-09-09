@@ -47,12 +47,15 @@ interface AppContextType {
   sendWingmanSuggestion: (forUserId: string, suggestedUserId: string, reason: string) => void;
   respondToWingman: (id: string, action: 'accepted' | 'rejected') => void;
   respondToISawYou: (postId: string) => void;
+  sendISawYou: (toUserId: string, message: string, location: string, anonymous: boolean) => Promise<boolean>;
   joinEvent: (postId: string) => void;
   leaveEvent: (postId: string) => void;
   approveEventJoin: (postId: string, targetUserId: string) => void;
   rejectEventJoin: (postId: string, targetUserId: string) => void;
   stories: Story[];
   createStory: (content: string, image: string | undefined, backgroundColor: string) => Promise<void>;
+  viewStory: (storyId: string) => void;
+  commentOnStory: (storyId: string, comment: string) => Promise<boolean>;
   sharePost: (postId: string) => void;
   removePostImage: (postId: string, imageUrl: string) => void;
   reportContent: (targetType: string, targetId: string, reason: string) => void;
@@ -452,6 +455,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
     fetch(`/api/posts/${postId}/respond`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId: currentUser.id }) }).catch(() => {});
   }, [currentUser.id]);
 
+  // Send a private "I saw you" note to one person's inbox (no feed post). Anonymous or as yourself.
+  const sendISawYou = useCallback(async (toUserId: string, message: string, location: string, anonymous: boolean): Promise<boolean> => {
+    try {
+      const res = await fetch('/api/isawyou', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ toUserId, message, location, anonymous }) });
+      return res.ok;
+    } catch { return false; }
+  }, []);
+
   const joinEvent = useCallback((postId: string) => {
     setPosts(prev => prev.map(p => {
       if (p.id !== postId || !p.eventData) return p;
@@ -533,6 +544,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
     } catch { /* ignore */ }
   }, [currentUser.id]);
 
+  const viewStory = useCallback((storyId: string) => {
+    // Optimistically add self to views, then persist.
+    setStories(prev => prev.map(s => s.id === storyId && !(s.views || []).includes(currentUser.id) && s.userId !== currentUser.id
+      ? { ...s, views: [...(s.views || []), currentUser.id] } : s));
+    fetch('/api/stories', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ storyId, action: 'view' }) }).catch(() => {});
+  }, [currentUser.id]);
+
+  const commentOnStory = useCallback(async (storyId: string, comment: string): Promise<boolean> => {
+    try {
+      const res = await fetch('/api/stories', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ storyId, action: 'comment', comment }) });
+      return res.ok;
+    } catch { return false; }
+  }, []);
+
   const unreadNotificationCount = notifications.filter(n => !n.read).length;
 
   return (
@@ -546,8 +571,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       games, createGame, deleteGame, voteWouldYouRather, voteNeverHaveIEver, guessTwoTruths, revealTwoTruths,
       secretAdmirers, sendSecretAdmirer, respondToAdmirer,
       wingmanSuggestions, sendWingmanSuggestion, respondToWingman,
-      respondToISawYou, joinEvent, leaveEvent, approveEventJoin, rejectEventJoin,
-      stories, createStory,
+      respondToISawYou, sendISawYou, joinEvent, leaveEvent, approveEventJoin, rejectEventJoin,
+      stories, createStory, viewStory, commentOnStory,
       sharePost, removePostImage, reportContent, deletePost, blockUser,
       badges, profileStats,
       users, getUserById, refreshData,

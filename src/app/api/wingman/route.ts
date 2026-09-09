@@ -28,10 +28,25 @@ export async function POST(request: Request) {
   const id = `ws_${crypto.randomUUID().slice(0, 8)}`;
   await db.prepare('INSERT INTO wingman_suggestions (id, wingmanId, forUserId, suggestedUserId, reason, status) VALUES (?, ?, ?, ?, ?, ?)').run(id, wingmanId, forUserId, suggestedUserId, reason.trim(), 'pending');
 
-  // Notify the person they made a suggestion for
+  // Notify BOTH people involved in the match.
   const wingman = await db.prepare('SELECT name FROM users WHERE id = ?').get(wingmanId) as any;
-  const nid = `n_${crypto.randomUUID().slice(0, 8)}`;
-  await db.prepare('INSERT INTO notifications (id, userId, type, fromUserId, message, read) VALUES (?, ?, ?, ?, ?, 0)').run(nid, forUserId, 'wingman-activity', wingmanId, `${wingman?.name || 'A friend'} made a wingman suggestion for you 🏹`);
+  const forUser = await db.prepare('SELECT name FROM users WHERE id = ?').get(forUserId) as any;
+  const suggested = await db.prepare('SELECT name FROM users WHERE id = ?').get(suggestedUserId) as any;
+  const wingmanName = wingman?.name || 'A friend';
+
+  // 1) The person the suggestion is FOR
+  const nid1 = `n_${crypto.randomUUID().slice(0, 8)}`;
+  await db.prepare('INSERT INTO notifications (id, userId, type, fromUserId, message, read) VALUES (?, ?, ?, ?, ?, 0)').run(
+    nid1, forUserId, 'wingman-activity', wingmanId,
+    `${wingmanName} thinks you and ${suggested?.name || 'someone'} would hit it off 🏹`
+  );
+
+  // 2) The suggested person
+  const nid2 = `n_${crypto.randomUUID().slice(0, 8)}`;
+  await db.prepare('INSERT INTO notifications (id, userId, type, fromUserId, message, read) VALUES (?, ?, ?, ?, ?, 0)').run(
+    nid2, suggestedUserId, 'wingman-activity', wingmanId,
+    `${wingmanName} thinks you and ${forUser?.name || 'someone'} would hit it off 🏹`
+  );
 
   return NextResponse.json({ id, wingmanId, forUserId, suggestedUserId, reason, status: 'pending' }, { status: 201 });
 }

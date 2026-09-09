@@ -66,3 +66,65 @@ export async function POST(request: Request) {
 
   return NextResponse.json({ id, userId, content, image, backgroundColor, createdAt, expiresAt, views: [] }, { status: 201 });
 }
+
+// PATCH /api/stories — record a view, or comment on a story (friends only → owner's inbox)
+export async function PATCH(request: Request) {
+  const auth = await requireUserId();
+  if (auth instanceof NextResponse) return auth;
+  const userId = auth;
+
+  const body = await request.json();
+  const { storyId, action, comment } = body;
+  if (!storyId) return NextResponse.json({ error: 'storyId required' }, { status: 400 });
+
+  const db = await getDb();
+  const story = await db.prepare('SELECT * FROM stories WHERE id = ?').get(storyId) as any;
+  if (!story) return NextResponse.json({ error: 'Story not found' }, { status: 404 });
+
+  // Record a view — anyone may view; don't count the owner or duplicates.
+  if (action === 'view') {
+    if (userId !== story.userId) {
+      const views: string[] = JSON.parse(story.views || '[]');
+      if (!views.includes(userId)) {
+        views.push(userId);
+        await db.prepare('UPDATE stories SET views = ? WHERE id = ?').run(JSON.stringify(views), storyId);
+      }
+    }
+    return NextResponse.json({ success: true });
+  }
+
+  // Comment — only FRIENDS of the story owner may comment; it goes to the owner's inbox.
+  if (action === 'comment') {
+    if (!comment?.trim()) return NextResponse.json({ error: 'comment required' }, { status: 400 });
+    if (userId === story.userId) return NextResponse.json({ error: 'You cannot comment on your own story' }, { status: 400 });
+
+    const friend = await db.prepare("SELECT 1 FROM connections WHERE userId = ? AND connectedUserId = ? AND type = 'friend'").get(userId, story.userId);
+    if (!friend) return NextResponse.json({ error: 'Only friends can comment on this story' }, { status: 403 });
+
+    const sender = await db.prepare('SELECT name FROM users WHERE id = ?').get(userId) as any;
+
+    // Deliver the comment to the owner's inbox as a message in their direct conversation.
+    const all = await db.prepare("SELECT * FROM conversations WHERE type = 'direct'").all() as any[];
+    let conv = all.find(c => {
+      const parts = JSON.parse(c.participants || '[]');
+      return parts.includes(userId) && parts.includes(story.userId);
+    });
+    let convId: string;
+    if (conv) { convId = conv.id; }
+    else {
+      convId = `conv_${crypto.randomUUID().slice(0, 8)}`;
+      await db.prepare('INSERT INTO conversations (id, type, participants) VALUES (?, ?, ?)').run(convId, 'direct', JSON.stringify([userId, story.userId]));
+    }
+    const mid = `m_${crypto.randomUUID().slice(0, 8)}`;
+    const content = `💬 Replied to your story: "${comment.trim()}"`;
+    await db.prepare('INSERT INTO messages (id, conversationId, senderId, content, read, createdAt) VALUES (?, ?, ?, ?, 0, ?)').run(mid, convId, userId, content, new Date().toISOString());
+
+    // Notify the owner
+    const nid = `n_${crypto.randomUUID().slice(0, 8)}`;
+    await db.prepare('INSERT INTO notifications (id, userId, type, fromUserId, message, relatedId, relatedType, read) VALUES (?, ?, ?, ?, ?, ?, ?, 0)').run(nid, story.userId, 'new-message', userId, `${sender?.name || 'A friend'} replied to your story`, convId, 'conversation');
+
+    return NextResponse.json({ success: true });
+  }
+
+  return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
+}
