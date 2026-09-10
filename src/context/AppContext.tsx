@@ -141,17 +141,21 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const pollRealtime = async () => {
     if (!currentUser.id) return;
     try {
-      const [notifsRes, reqsRes, convsRes, storiesRes, gamesRes, postsRes] = await Promise.all([
+      // Heartbeat so others see us as online (fire-and-forget).
+      fetch('/api/heartbeat', { method: 'POST' }).catch(() => {});
+      const [notifsRes, reqsRes, convsRes, storiesRes, gamesRes, postsRes, usersRes] = await Promise.all([
         fetch(`/api/notifications?userId=${currentUser.id}`),
         fetch(`/api/requests?userId=${currentUser.id}`),
         fetch(`/api/messages?userId=${currentUser.id}`),
         fetch('/api/stories'),
         fetch('/api/games'),
         fetch('/api/posts'),
+        fetch('/api/users'),
       ]);
       if (storiesRes.ok) { const s = await storiesRes.json(); if (Array.isArray(s)) setStories(s); }
       if (gamesRes.ok) { const g = await gamesRes.json(); if (Array.isArray(g)) setGames(g); }
       if (postsRes.ok) { const p = await postsRes.json(); if (Array.isArray(p)) setPosts(p); }
+      if (usersRes.ok) { const u = await usersRes.json(); if (Array.isArray(u)) setUsers(u.map((x: any) => ({ ...EMPTY_USER, ...x }))); }
       if (notifsRes.ok) {
         const fresh = await notifsRes.json();
         setNotifications(prev => {

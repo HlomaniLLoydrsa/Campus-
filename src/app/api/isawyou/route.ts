@@ -27,14 +27,34 @@ export async function POST(request: Request) {
   const sender = isAnon ? null : await db.prepare('SELECT name FROM users WHERE id = ?').get(fromUserId) as any;
   const senderName = isAnon ? 'Someone' : (sender?.name || 'Someone');
   const where = location?.trim() ? ` (at ${location.trim()})` : '';
-
-  // Deliver as a notification to the recipient's inbox/notifications.
-  const nid = `n_${crypto.randomUUID().slice(0, 8)}`;
   const noteMessage = `👀 ${senderName} saw you${where}: "${message.trim()}"`;
-  // Named notes carry fromUserId so the recipient can view the profile; anonymous ones don't.
-  await db.prepare('INSERT INTO notifications (id, userId, type, fromUserId, message, read) VALUES (?, ?, ?, ?, ?, 0)').run(
-    nid, toUserId, 'mention', isAnon ? null : fromUserId, noteMessage
-  );
+
+  if (isAnon) {
+    // Anonymous: deliver only as a notification (a DM would reveal the sender as a participant).
+    const nid = `n_${crypto.randomUUID().slice(0, 8)}`;
+    await db.prepare('INSERT INTO notifications (id, userId, type, fromUserId, message, read) VALUES (?, ?, ?, ?, ?, 0)').run(
+      nid, toUserId, 'mention', null, noteMessage
+    );
+  } else {
+    // Named: deliver as a real inbox message so it lands in their chat, plus a notification.
+    const all = await db.prepare("SELECT * FROM conversations WHERE type = 'direct'").all() as any[];
+    let conv = all.find(c => {
+      const parts = JSON.parse(c.participants || '[]');
+      return parts.includes(fromUserId) && parts.includes(toUserId);
+    });
+    let convId: string;
+    if (conv) { convId = conv.id; }
+    else {
+      convId = `conv_${crypto.randomUUID().slice(0, 8)}`;
+      await db.prepare('INSERT INTO conversations (id, type, participants) VALUES (?, ?, ?)').run(convId, 'direct', JSON.stringify([fromUserId, toUserId]));
+    }
+    const mid = `m_${crypto.randomUUID().slice(0, 8)}`;
+    await db.prepare('INSERT INTO messages (id, conversationId, senderId, content, read, createdAt) VALUES (?, ?, ?, ?, 0, ?)').run(mid, convId, fromUserId, noteMessage, new Date().toISOString());
+    const nid = `n_${crypto.randomUUID().slice(0, 8)}`;
+    await db.prepare('INSERT INTO notifications (id, userId, type, fromUserId, message, relatedId, relatedType, read) VALUES (?, ?, ?, ?, ?, ?, ?, 0)').run(
+      nid, toUserId, 'new-message', fromUserId, `${senderName} sent you an "I saw you" note`, convId, 'conversation'
+    );
+  }
 
   return NextResponse.json({ success: true }, { status: 201 });
 }

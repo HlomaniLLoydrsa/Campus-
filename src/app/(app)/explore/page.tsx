@@ -267,10 +267,10 @@ export default function ExplorePage() {
             </div>
           )}
 
-          {/* Play mode modal — scrollable so nothing is cut off */}
+          {/* Play mode modal — scrollable + clears the bottom nav so nothing is cut off */}
           {selectedCard && isGameType(selectedCard) && (
-            <div className="fixed inset-0 bg-black/60 z-50 flex items-end sm:items-center justify-center p-3 sm:p-4">
-              <div className="bg-white rounded-2xl w-full max-w-sm max-h-[88vh] overflow-y-auto p-5 sm:p-6 animate-slide-up">
+            <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-3 sm:p-4">
+              <div className="bg-white rounded-2xl w-full max-w-sm max-h-[80vh] overflow-y-auto p-5 sm:p-6 animate-slide-up mb-16 lg:mb-0">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="font-bold text-lg">
                     {selectedCard === 'would-you-rather' ? '🤔 Would You Rather' : selectedCard === 'never-have-i-ever' ? '🙈 Never Have I Ever' : '🎭 Two Truths, One Lie'}

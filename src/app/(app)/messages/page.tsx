@@ -164,7 +164,15 @@ function MessagesContent() {
                     ) : (
                       <p className="font-semibold text-sm">{getConversationName(selectedConversation)}</p>
                     )}
-                    <p className="text-xs text-gray-500">{selectedConversation.type === 'direct' ? 'Tap name to view profile' : `${selectedConversation.participants.length} members`}</p>
+                    {selectedConversation.type === 'direct' ? (
+                      otherUserId && getUserById(otherUserId)?.isOnline ? (
+                        <p className="text-xs text-green-500 flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-green-500 inline-block" /> Online</p>
+                      ) : (
+                        <p className="text-xs text-gray-400">Tap name to view profile</p>
+                      )
+                    ) : (
+                      <p className="text-xs text-gray-500">{selectedConversation.participants.length} members</p>
+                    )}
                   </div>
                 </div>
 
@@ -178,7 +186,11 @@ function MessagesContent() {
                     return (
                       <div key={msg.id} className={`flex ${isOwn ? 'justify-end' : 'justify-start'}`}>
                         <div className={`flex items-end gap-2 max-w-[75%] ${isOwn ? 'flex-row-reverse' : ''}`}>
-                          {!isOwn && <Avatar src={sender?.avatar} name={sender?.name} size={28} />}
+                          {!isOwn && (
+                            <button onClick={() => sender && router.push(`/profile/${sender.id}`)} title="View profile" className="flex-shrink-0">
+                              <Avatar src={sender?.avatar} name={sender?.name} size={28} />
+                            </button>
+                          )}
                           <div className={`px-4 py-2.5 rounded-2xl ${isOwn ? 'bg-campus-primary text-white rounded-br-md' : 'bg-gray-100 text-gray-800 rounded-bl-md'}`}>
                             {!isOwn && selectedConversation.type !== 'direct' && <p className="text-[10px] font-semibold mb-0.5 opacity-70">{sender?.name}</p>}
                             {(() => {

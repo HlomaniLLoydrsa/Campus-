@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Sidebar from '@/components/layout/Sidebar';
 import BottomNav from '@/components/layout/BottomNav';
@@ -14,12 +14,23 @@ import Link from 'next/link';
 export default function UserProfilePage() {
   const params = useParams();
   const userId = params.id as string;
-  const { currentUser, users, posts, connections, getConnectionStatus } = useApp();
+  const { currentUser, users, posts, getConnectionStatus } = useApp();
 
   const user = users.find(u => u.id === userId);
   const status = getConnectionStatus(userId);
   const userPosts = posts.filter(p => p.authorId === userId && !p.isAnonymous);
-  const friendCount = connections[userId]?.length || 0;
+
+  // Real counts for this user (connections/posts/badges) fetched from the server,
+  // since the client only holds the current user's connection list locally.
+  const [stats, setStats] = useState<{ connections: number; posts: number; badges: number } | null>(null);
+  useEffect(() => {
+    if (!userId) return;
+    fetch(`/api/users/${userId}/stats`).then(r => r.ok ? r.json() : null).then(d => { if (d) setStats(d); }).catch(() => {});
+  }, [userId]);
+
+  const friendCount = stats?.connections ?? 0;
+  const postCount = stats?.posts ?? userPosts.length;
+  const badgeCount = stats?.badges ?? (user?.badges?.length || 0);
 
   if (!user) {
     return (
@@ -84,8 +95,8 @@ export default function UserProfilePage() {
 
             <div className="flex gap-6 mt-4 py-4 border-y border-gray-100">
               <div className="text-center"><p className="font-bold text-lg">{friendCount}</p><p className="text-xs text-gray-500">Connections</p></div>
-              <div className="text-center"><p className="font-bold text-lg">{user.postsCount}</p><p className="text-xs text-gray-500">Posts</p></div>
-              <div className="text-center"><p className="font-bold text-lg">{user.badges.length}</p><p className="text-xs text-gray-500">Badges</p></div>
+              <div className="text-center"><p className="font-bold text-lg">{postCount}</p><p className="text-xs text-gray-500">Posts</p></div>
+              <div className="text-center"><p className="font-bold text-lg">{badgeCount}</p><p className="text-xs text-gray-500">Badges</p></div>
             </div>
 
             {/* Interests */}
