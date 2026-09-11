@@ -28,6 +28,8 @@ export function getNotificationHref(
       return relatedId ? `/explore?game=${relatedId}` : '/explore';
     case 'resource':
       return relatedId ? `/academy/${relatedId}` : '/academy';
+    case 'lostfound':
+      return relatedId ? `/lost-found/${relatedId}` : '/lost-found';
   }
 
   // Fall back on the notification type. Only the connection types below reach /connections.

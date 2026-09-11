@@ -179,7 +179,7 @@ export interface Notification {
   groupCount?: number;
   requestType?: RequestType;
   relatedId?: string;
-  relatedType?: 'request' | 'connection' | 'conversation' | 'post' | 'game' | 'resource';
+  relatedType?: 'request' | 'connection' | 'conversation' | 'post' | 'game' | 'resource' | 'lostfound';
 }
 
 export interface Badge {

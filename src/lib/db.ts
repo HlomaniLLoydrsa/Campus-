@@ -323,6 +323,41 @@ async function initializeDb() {
     CREATE INDEX IF NOT EXISTS idx_academy_created ON academy_resources(createdAt);
     CREATE INDEX IF NOT EXISTS idx_academy_ratings_resource ON academy_ratings(resourceId);
     CREATE INDEX IF NOT EXISTS idx_academy_saves_user ON academy_saves(userId);
+
+    -- ── VYBE Lost & Found ─────────────────────────────────────────
+    CREATE TABLE IF NOT EXISTS lost_found (
+      id TEXT PRIMARY KEY,
+      reporterId TEXT NOT NULL,
+      kind TEXT NOT NULL DEFAULT 'lost',            -- 'lost' | 'found'
+      itemName TEXT NOT NULL,
+      category TEXT DEFAULT 'other',
+      description TEXT DEFAULT '',
+      photo TEXT,
+      location TEXT DEFAULT '',
+      campus TEXT DEFAULT '',
+      dateOn TEXT DEFAULT '',                        -- date lost/found (free text/date)
+      secretQuestion TEXT DEFAULT '',                -- private ownership verification (never shown publicly)
+      status TEXT DEFAULT 'open',                    -- 'open' | 'recovered'
+      createdAt TEXT DEFAULT (datetime('now'))
+    );
+
+    -- Claims: someone says a found item is theirs and answers the owner's verification question.
+    CREATE TABLE IF NOT EXISTS lost_found_claims (
+      id TEXT PRIMARY KEY,
+      itemId TEXT NOT NULL,
+      claimantId TEXT NOT NULL,
+      answer TEXT DEFAULT '',
+      status TEXT DEFAULT 'pending',                 -- 'pending' | 'approved' | 'rejected'
+      createdAt TEXT DEFAULT (datetime('now'))
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_lf_kind ON lost_found(kind);
+    CREATE INDEX IF NOT EXISTS idx_lf_category ON lost_found(category);
+    CREATE INDEX IF NOT EXISTS idx_lf_campus ON lost_found(campus);
+    CREATE INDEX IF NOT EXISTS idx_lf_status ON lost_found(status);
+    CREATE INDEX IF NOT EXISTS idx_lf_reporter ON lost_found(reporterId);
+    CREATE INDEX IF NOT EXISTS idx_lf_created ON lost_found(createdAt);
+    CREATE INDEX IF NOT EXISTS idx_lf_claims_item ON lost_found_claims(itemId);
   `);
 
   // Safe additive migrations for databases created before newer columns existed.
