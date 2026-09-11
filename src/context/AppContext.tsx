@@ -451,7 +451,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const respondToWingman = useCallback((id: string, action: 'accepted' | 'rejected') => {
     setWingmanSuggestions(prev => prev.map(ws => ws.id === id ? { ...ws, status: action } : ws));
-    fetch('/api/wingman', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, action }) }).catch(() => {});
+    fetch('/api/wingman', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, action }) })
+      .then(() => { if (action === 'accepted') loadFromApi(); }) // refresh connections + conversations
+      .catch(() => {});
   }, []);
 
   const respondToISawYou = useCallback((postId: string) => {

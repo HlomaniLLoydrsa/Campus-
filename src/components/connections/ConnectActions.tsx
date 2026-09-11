@@ -40,9 +40,9 @@ export default function ConnectActions({ userId, status, compact = false, iconOn
           <button
             onClick={() => sendRequest(userId, 'relationship')}
             title="Relationship request"
-            className="w-8 h-8 rounded-full bg-white border-2 border-red-500 flex items-center justify-center hover:shadow-lg active:scale-95 cursor-pointer"
+            className="w-8 h-8 rounded-full bg-red-500 text-white flex items-center justify-center hover:shadow-lg active:scale-95 cursor-pointer"
           >
-            <Heart size={15} className="text-red-500 fill-red-500" />
+            <Heart size={15} className="fill-white" />
           </button>
         </div>
       );
