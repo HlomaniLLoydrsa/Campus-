@@ -444,6 +444,106 @@ async function initializeDb() {
     CREATE INDEX IF NOT EXISTS idx_svc_saves_user ON service_saves(userId);
     CREATE INDEX IF NOT EXISTS idx_svc_req_provider ON service_requests(providerId);
     CREATE INDEX IF NOT EXISTS idx_svc_req_requester ON service_requests(requesterId);
+
+    -- ── VYBE Planner (academic productivity) ──────────────────────
+    CREATE TABLE IF NOT EXISTS planner_semesters (
+      id TEXT PRIMARY KEY,
+      userId TEXT NOT NULL,
+      name TEXT NOT NULL,
+      startDate TEXT DEFAULT '',
+      endDate TEXT DEFAULT '',
+      active INTEGER DEFAULT 1,
+      createdAt TEXT DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS planner_modules (
+      id TEXT PRIMARY KEY,
+      userId TEXT NOT NULL,
+      semesterId TEXT,
+      code TEXT DEFAULT '',
+      name TEXT NOT NULL,
+      color TEXT DEFAULT '#1A3F75',
+      archived INTEGER DEFAULT 0,
+      createdAt TEXT DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS planner_topics (
+      id TEXT PRIMARY KEY,
+      userId TEXT NOT NULL,
+      moduleId TEXT NOT NULL,
+      name TEXT NOT NULL,
+      status TEXT DEFAULT 'not-started',
+      priority TEXT DEFAULT 'medium',
+      notes TEXT DEFAULT '',
+      createdAt TEXT DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS planner_tasks (
+      id TEXT PRIMARY KEY,
+      userId TEXT NOT NULL,
+      moduleId TEXT,
+      title TEXT NOT NULL,
+      type TEXT DEFAULT 'assignment',
+      description TEXT DEFAULT '',
+      dueDate TEXT DEFAULT '',
+      dueTime TEXT DEFAULT '',
+      priority TEXT DEFAULT 'medium',
+      status TEXT DEFAULT 'not-started',
+      progress INTEGER DEFAULT 0,
+      estimatedHours REAL DEFAULT 0,
+      topicIds TEXT DEFAULT '[]',
+      notes TEXT DEFAULT '',
+      pinned INTEGER DEFAULT 0,
+      createdAt TEXT DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS planner_sessions (
+      id TEXT PRIMARY KEY,
+      userId TEXT NOT NULL,
+      moduleId TEXT,
+      topicId TEXT,
+      taskId TEXT,
+      planId TEXT,
+      title TEXT NOT NULL,
+      date TEXT DEFAULT '',
+      startTime TEXT DEFAULT '',
+      endTime TEXT DEFAULT '',
+      durationMin INTEGER DEFAULT 60,
+      goal TEXT DEFAULT '',
+      status TEXT DEFAULT 'planned',
+      actualMin INTEGER DEFAULT 0,
+      reflection TEXT DEFAULT '',
+      resourceId TEXT,
+      createdAt TEXT DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS planner_plans (
+      id TEXT PRIMARY KEY,
+      userId TEXT NOT NULL,
+      moduleId TEXT,
+      taskId TEXT,
+      goal TEXT DEFAULT '',
+      targetDate TEXT DEFAULT '',
+      createdAt TEXT DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS planner_prefs (
+      userId TEXT PRIMARY KEY,
+      remindAssignments INTEGER DEFAULT 1,
+      remindExams INTEGER DEFAULT 1,
+      remindSessions INTEGER DEFAULT 1,
+      remindOverdue INTEGER DEFAULT 1,
+      updatedAt TEXT DEFAULT (datetime('now'))
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_pl_mod_user ON planner_modules(userId);
+    CREATE INDEX IF NOT EXISTS idx_pl_topic_module ON planner_topics(moduleId);
+    CREATE INDEX IF NOT EXISTS idx_pl_task_user ON planner_tasks(userId);
+    CREATE INDEX IF NOT EXISTS idx_pl_task_module ON planner_tasks(moduleId);
+    CREATE INDEX IF NOT EXISTS idx_pl_task_due ON planner_tasks(dueDate);
+    CREATE INDEX IF NOT EXISTS idx_pl_sess_user ON planner_sessions(userId);
+    CREATE INDEX IF NOT EXISTS idx_pl_sess_date ON planner_sessions(date);
+    CREATE INDEX IF NOT EXISTS idx_pl_sess_task ON planner_sessions(taskId);
   `);
 
   // Safe additive migrations for databases created before newer columns existed.

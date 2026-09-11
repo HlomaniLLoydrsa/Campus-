@@ -41,7 +41,7 @@ const ECOSYSTEM: { label: string; emoji: string; color: string; href?: string }[
   { label: 'Marketplace', emoji: '🛒', color: 'bg-amber-100', href: '/marketplace' },
   { label: 'Lost & Found', emoji: '🔎', color: 'bg-orange-100', href: '/lost-found' },
   { label: 'Jobs & Gigs', emoji: '💼', color: 'bg-indigo-100', href: '/services' },
-  { label: 'Accommodation', emoji: '🏠', color: 'bg-teal-100' },
+  { label: 'Planner', emoji: '🗓️', color: 'bg-teal-100', href: '/planner' },
   { label: 'Tutors', emoji: '🎓', color: 'bg-purple-100', href: '/services?kind=tutor' },
   { label: 'Opportunities', emoji: '🚀', color: 'bg-rose-100' },
   { label: 'Communities', emoji: '🧑‍🤝‍🧑', color: 'bg-cyan-100' },
