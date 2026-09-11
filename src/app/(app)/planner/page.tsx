@@ -7,7 +7,7 @@ import BottomNav from '@/components/layout/BottomNav';
 import TopBar from '@/components/layout/TopBar';
 import { useApp } from '@/context/AppContext';
 import { taskTypeMeta, priorityMeta, countdown } from '@/lib/planner';
-import { CalendarDays, Clock, AlertTriangle, Target, CheckCircle2, BookOpen, ArrowRight, Plus, Layers, ListTodo } from 'lucide-react';
+import { CalendarDays, Clock, AlertTriangle, Target, CheckCircle2, BookOpen, ArrowRight, Plus, Layers, ListTodo, CalendarRange } from 'lucide-react';
 
 export default function PlannerDashboardPage() {
   const { currentUser } = useApp();
@@ -42,10 +42,11 @@ export default function PlannerDashboardPage() {
           </div>
 
           {/* Quick nav */}
-          <div className="grid grid-cols-4 gap-2 mb-5">
+          <div className="grid grid-cols-5 gap-2 mb-5">
             <Link href="/planner/tasks" className="card p-3 flex flex-col items-center gap-1 hover:bg-gray-50"><ListTodo size={18} className="text-campus-primary" /><span className="text-[10px] font-medium text-gray-600">Tasks</span></Link>
             <Link href="/planner/modules" className="card p-3 flex flex-col items-center gap-1 hover:bg-gray-50"><Layers size={18} className="text-indigo-500" /><span className="text-[10px] font-medium text-gray-600">Modules</span></Link>
             <Link href="/planner/calendar" className="card p-3 flex flex-col items-center gap-1 hover:bg-gray-50"><CalendarDays size={18} className="text-green-500" /><span className="text-[10px] font-medium text-gray-600">Calendar</span></Link>
+            <Link href="/planner/study/plan" className="card p-3 flex flex-col items-center gap-1 hover:bg-gray-50"><CalendarRange size={18} className="text-teal-500" /><span className="text-[10px] font-medium text-gray-600">Plan</span></Link>
             <Link href="/planner/tasks?new=1" className="card p-3 flex flex-col items-center gap-1 hover:bg-gray-50"><Plus size={18} className="text-campus-accent" /><span className="text-[10px] font-medium text-gray-600">Add</span></Link>
           </div>
 

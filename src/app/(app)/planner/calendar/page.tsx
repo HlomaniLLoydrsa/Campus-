@@ -6,7 +6,7 @@ import Sidebar from '@/components/layout/Sidebar';
 import BottomNav from '@/components/layout/BottomNav';
 import TopBar from '@/components/layout/TopBar';
 import { taskTypeMeta } from '@/lib/planner';
-import { ArrowLeft, CalendarDays, Plus } from 'lucide-react';
+import { ArrowLeft, CalendarDays, Plus, CalendarRange } from 'lucide-react';
 
 export default function PlannerCalendarPage() {
   const [tasks, setTasks] = useState<any[]>([]);
@@ -54,7 +54,10 @@ export default function PlannerCalendarPage() {
               <Link href="/planner" className="p-1 rounded-lg hover:bg-gray-100"><ArrowLeft size={18} /></Link>
               <h1 className="text-xl font-bold flex items-center gap-2"><CalendarDays className="text-campus-primary" size={22} /> Calendar</h1>
             </div>
-            <Link href="/planner/study" className="btn-primary flex items-center gap-2 text-sm"><Plus size={16} /> Session</Link>
+            <div className="flex items-center gap-2">
+              <Link href="/planner/study/plan" className="btn-secondary flex items-center gap-2 text-sm"><CalendarRange size={16} /> Plan</Link>
+              <Link href="/planner/study" className="btn-primary flex items-center gap-2 text-sm"><Plus size={16} /> Session</Link>
+            </div>
           </div>
 
           {loading ? (
