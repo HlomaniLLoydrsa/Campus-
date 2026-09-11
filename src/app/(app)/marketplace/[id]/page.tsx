@@ -7,6 +7,7 @@ import Sidebar from '@/components/layout/Sidebar';
 import BottomNav from '@/components/layout/BottomNav';
 import TopBar from '@/components/layout/TopBar';
 import { useApp } from '@/context/AppContext';
+import { useFeedback } from '@/context/FeedbackContext';
 import { MarketListing, mktCategoryMeta, conditionLabel, formatPrice } from '@/lib/marketplace';
 import { ArrowLeft, MapPin, MessageCircle, Bookmark, Flag, Trash2, Tag, CheckCircle, RotateCcw } from 'lucide-react';
 import { formatTimeAgo } from '@/lib/utils';
@@ -16,6 +17,7 @@ export default function ListingDetailPage() {
   const id = params.id as string;
   const router = useRouter();
   const { currentUser, getUserById, reportContent } = useApp();
+  const { confirm, toast } = useFeedback();
   const [it, setIt] = useState<MarketListing | null>(null);
   const [loading, setLoading] = useState(true);
   const [reported, setReported] = useState(false);
@@ -89,7 +91,7 @@ export default function ListingDetailPage() {
                     ) : (
                       <button onClick={async () => { const d = await patch({ action: 'relist' }); if (d) setIt({ ...it, status: 'available' }); }} className="btn-secondary text-sm flex items-center gap-1"><RotateCcw size={15} /> Relist</button>
                     )}
-                    <button onClick={async () => { if (confirm('Delete this listing?')) { await fetch(`/api/marketplace/${id}`, { method: 'DELETE' }); router.push('/marketplace'); } }} className="px-3 py-2 rounded-xl border border-red-200 text-red-500 text-sm flex items-center gap-1"><Trash2 size={15} /> Delete</button>
+                    <button onClick={async () => { const ok = await confirm({ title: 'Delete this listing?', confirmText: 'Delete', destructive: true }); if (ok) { await fetch(`/api/marketplace/${id}`, { method: 'DELETE' }); toast('Listing deleted'); router.push('/marketplace'); } }} className="px-3 py-2 rounded-xl border border-red-200 text-red-500 text-sm flex items-center gap-1"><Trash2 size={15} /> Delete</button>
                   </>
                 ) : (
                   <>

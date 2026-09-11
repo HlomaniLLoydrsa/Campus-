@@ -6,6 +6,7 @@ import Sidebar from '@/components/layout/Sidebar';
 import BottomNav from '@/components/layout/BottomNav';
 import TopBar from '@/components/layout/TopBar';
 import { useApp } from '@/context/AppContext';
+import { useFeedback } from '@/context/FeedbackContext';
 import { Gamepad2, Users, ArrowLeft, Check, Plus, X, Trash2 } from 'lucide-react';
 import { formatTimeAgo } from '@/lib/utils';
 import { WouldYouRatherData, NeverHaveIEverData, TwoTruthsOneLieData, Game } from '@/types';
@@ -20,6 +21,7 @@ export default function GamesPage() {
 
 function GamesContent() {
   const { games, currentUser, getUserById, createGame, deleteGame, voteWouldYouRather, voteNeverHaveIEver, guessTwoTruths, revealTwoTruths } = useApp();
+  const { confirm, toast } = useFeedback();
   const searchParams = useSearchParams();
   const [selectedGame, setSelectedGame] = useState<string | null>(null);
   const [showCreate, setShowCreate] = useState(false);
@@ -125,7 +127,7 @@ function GamesContent() {
                 </button>
                 {selected.creatorId === currentUser.id && (
                   <button
-                    onClick={() => { if (confirm('Delete this game? This cannot be undone.')) { deleteGame(selected.id); setSelectedGame(null); } }}
+                    onClick={async () => { const ok = await confirm({ title: 'Delete this game?', message: 'This cannot be undone.', confirmText: 'Delete', destructive: true }); if (ok) { deleteGame(selected.id); setSelectedGame(null); toast('Game deleted'); } }}
                     className="flex items-center gap-1 text-sm text-red-600 font-medium hover:underline"
                   >
                     <Trash2 size={14} /> Delete

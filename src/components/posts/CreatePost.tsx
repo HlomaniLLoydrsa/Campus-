@@ -4,6 +4,7 @@ import React, { useState, useRef } from 'react';
 import { Image as ImageIcon, X, Lock, Eye } from 'lucide-react';
 import { PostType } from '@/types';
 import { useApp } from '@/context/AppContext';
+import { useFeedback } from '@/context/FeedbackContext';
 import { generateId } from '@/lib/utils';
 import { resizeImage } from '@/lib/image';
 
@@ -20,6 +21,7 @@ const postTypes: { type: PostType; label: string; icon: string; color: string }[
 
 export default function CreatePost({ defaultType = 'normal', onClose }: { defaultType?: PostType; onClose?: () => void }) {
   const { currentUser, addPost } = useApp();
+  const { toast } = useFeedback();
   const [content, setContent] = useState('');
   const [selectedType, setSelectedType] = useState<PostType>(defaultType);
   const [isAnonymous, setIsAnonymous] = useState(defaultType === 'confession');
@@ -37,7 +39,7 @@ export default function CreatePost({ defaultType = 'normal', onClose }: { defaul
     const resized: File[] = [];
     const previews: string[] = [];
     for (const f of toAdd) {
-      if (f.size > 15 * 1024 * 1024) { alert('Each image must be less than 15MB'); continue; }
+      if (f.size > 15 * 1024 * 1024) { toast('Each image must be less than 15MB', 'error'); continue; }
       const r = await resizeImage(f);
       resized.push(r);
       previews.push(URL.createObjectURL(r));

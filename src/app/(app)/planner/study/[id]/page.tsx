@@ -6,10 +6,12 @@ import Sidebar from '@/components/layout/Sidebar';
 import BottomNav from '@/components/layout/BottomNav';
 import TopBar from '@/components/layout/TopBar';
 import { ArrowLeft, Play, Pause, CheckCircle2, X, Trash2 } from 'lucide-react';
+import { useFeedback } from '@/context/FeedbackContext';
 
 export default function StudyModePage() {
   const { id } = useParams() as { id: string };
   const router = useRouter();
+  const { confirm, toast } = useFeedback();
   const [s, setS] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [running, setRunning] = useState(false);
@@ -51,7 +53,7 @@ export default function StudyModePage() {
         <div className="max-w-2xl mx-auto px-4 py-6">
           <div className="flex items-center justify-between mb-4">
             <button onClick={() => router.push('/planner')} className="flex items-center gap-1 text-sm text-campus-primary font-medium hover:underline"><ArrowLeft size={14} /> Planner</button>
-            {!done && <button onClick={async () => { if (confirm('Delete this session?')) { await fetch(`/api/planner/sessions/${id}`, { method: 'DELETE' }); router.push('/planner'); } }} className="p-2 rounded-lg hover:bg-red-50 text-red-500"><Trash2 size={16} /></button>}
+            {!done && <button onClick={async () => { const ok = await confirm({ title: 'Delete this session?', confirmText: 'Delete', destructive: true }); if (ok) { await fetch(`/api/planner/sessions/${id}`, { method: 'DELETE' }); toast('Session deleted'); router.push('/planner'); } }} className="p-2 rounded-lg hover:bg-red-50 text-red-500"><Trash2 size={16} /></button>}
           </div>
 
           {done ? (

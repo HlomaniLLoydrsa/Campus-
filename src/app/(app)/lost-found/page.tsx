@@ -6,6 +6,7 @@ import Sidebar from '@/components/layout/Sidebar';
 import BottomNav from '@/components/layout/BottomNav';
 import TopBar from '@/components/layout/TopBar';
 import { useApp } from '@/context/AppContext';
+import { useFeedback } from '@/context/FeedbackContext';
 import { LostFoundItem, LF_CATEGORIES, lfCategoryMeta } from '@/lib/lostfound';
 import { Search, Plus, X, MapPin, Upload, Search as SearchIcon } from 'lucide-react';
 import { formatTimeAgo } from '@/lib/utils';
@@ -100,6 +101,7 @@ export default function LostFoundPage() {
 }
 
 function ReportModal({ defaultKind, onClose, onDone }: { defaultKind: 'lost' | 'found'; onClose: () => void; onDone: () => void }) {
+  const { toast } = useFeedback();
   const [form, setForm] = useState({ kind: defaultKind, itemName: '', category: 'other', description: '', location: '', campus: '', dateOn: '', secretQuestion: '' });
   const [file, setFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
@@ -121,7 +123,7 @@ function ReportModal({ defaultKind, onClose, onDone }: { defaultKind: 'lost' | '
       if (!res.ok) { const d = await res.json().catch(() => ({})); setError(d.error || 'Failed'); setBusy(false); return; }
       const created = await res.json();
       onDone();
-      if (created.matchCount > 0) alert(`We found ${created.matchCount} possible match(es)! Check the item page.`);
+      if (created.matchCount > 0) toast(`We found ${created.matchCount} possible match${created.matchCount > 1 ? 'es' : ''}! Check the item page.`, 'info');
     } catch { setError('Something went wrong.'); setBusy(false); }
   };
 

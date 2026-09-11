@@ -5,20 +5,20 @@ import Link from 'next/link';
 import { Bell, Settings, Search, LogOut, User as UserIcon } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
 import { useAuth } from '@/context/AuthContext';
+import { useFeedback } from '@/context/FeedbackContext';
 import { useRouter } from 'next/navigation';
 import Logo from '@/components/Logo';
 
 export default function TopBar() {
   const { unreadNotificationCount, currentUser } = useApp();
   const { logout } = useAuth();
+  const { confirm, toast } = useFeedback();
   const router = useRouter();
   const [showMenu, setShowMenu] = useState(false);
 
-  const handleLogout = () => {
-    if (window.confirm('Are you sure you want to log out?')) {
-      logout();
-      router.push('/welcome');
-    }
+  const handleLogout = async () => {
+    const ok = await confirm({ title: 'Log out of VYBE?', confirmText: 'Log out' });
+    if (ok) { logout(); toast('You have been logged out'); router.push('/welcome'); }
   };
 
   return (

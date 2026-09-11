@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Heart, MessageCircle, Share2, Bookmark, MoreHorizontal, Flag, Send, Trash2, X } from 'lucide-react';
 import { Post } from '@/types';
 import { useApp } from '@/context/AppContext';
+import { useFeedback } from '@/context/FeedbackContext';
 import { formatTimeAgo, getPostTypeStyle } from '@/lib/utils';
 import Avatar from '@/components/Avatar';
 
@@ -14,6 +15,7 @@ interface Props {
 
 export default function PostCard({ post }: Props) {
   const { currentUser, likePost, savePost, addComment, getUserById, sharePost, removePostImage, reportContent, deletePost, connections, getOrCreateDirectConversation, sendMessage } = useApp();
+  const { confirm, toast } = useFeedback();
   const [showComments, setShowComments] = useState(false);
   const [commentText, setCommentText] = useState('');
   const [showMenu, setShowMenu] = useState(false);
@@ -60,11 +62,10 @@ export default function PostCard({ post }: Props) {
     setShowMenu(false);
   };
 
-  const handleDelete = () => {
-    if (confirm('Delete this post? This cannot be undone.')) {
-      deletePost(post.id);
-    }
+  const handleDelete = async () => {
     setShowMenu(false);
+    const ok = await confirm({ title: 'Delete this post?', message: 'This cannot be undone.', confirmText: 'Delete', destructive: true });
+    if (ok) { deletePost(post.id); toast('Post deleted'); }
   };
 
   return (
@@ -135,7 +136,7 @@ export default function PostCard({ post }: Props) {
           images={post.images.filter(Boolean)}
           onOpen={(i) => setLightboxIndex(i)}
           canDelete={isOwnPost}
-          onDelete={(url) => { if (confirm('Remove this picture from your post?')) removePostImage(post.id, url); }}
+          onDelete={async (url) => { const ok = await confirm({ title: 'Remove this picture?', confirmText: 'Remove', destructive: true }); if (ok) { removePostImage(post.id, url); toast('Picture removed'); } }}
         />
       )}
 

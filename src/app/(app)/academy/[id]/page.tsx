@@ -7,6 +7,7 @@ import Sidebar from '@/components/layout/Sidebar';
 import BottomNav from '@/components/layout/BottomNav';
 import TopBar from '@/components/layout/TopBar';
 import { useApp } from '@/context/AppContext';
+import { useFeedback } from '@/context/FeedbackContext';
 import { AcademyResource, typeMeta, formatFileSize } from '@/lib/academy';
 import { ArrowLeft, Download, Star, Bookmark, Flag, Trash2, BookOpen, CalendarPlus, X, Check } from 'lucide-react';
 
@@ -15,6 +16,7 @@ export default function AcademyResourcePage() {
   const id = params.id as string;
   const router = useRouter();
   const { currentUser, getUserById, reportContent } = useApp();
+  const { confirm, toast } = useFeedback();
   const [r, setR] = useState<AcademyResource | null>(null);
   const [loading, setLoading] = useState(true);
   const [reported, setReported] = useState(false);
@@ -60,9 +62,11 @@ export default function AcademyResourcePage() {
   };
 
   const handleDelete = async () => {
-    if (!r || !confirm('Delete this resource? This cannot be undone.')) return;
+    if (!r) return;
+    const ok = await confirm({ title: 'Delete this resource?', message: 'This cannot be undone.', confirmText: 'Delete', destructive: true });
+    if (!ok) return;
     const res = await fetch(`/api/academy/${id}`, { method: 'DELETE' });
-    if (res.ok) router.push('/academy');
+    if (res.ok) { toast('Resource deleted'); router.push('/academy'); }
   };
 
   if (loading) {

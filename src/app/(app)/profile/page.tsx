@@ -10,6 +10,7 @@ import { Edit2, FileText, Bookmark, Award, MapPin, BookOpen, Calendar, Users, Me
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
+import { useFeedback } from '@/context/FeedbackContext';
 
 export default function ProfilePage() {
   const { currentUser, posts, connections, users, getOrCreateDirectConversation, badges } = useApp();
@@ -94,6 +95,7 @@ export default function ProfilePage() {
 function EditProfileModal({ onClose }: { onClose: () => void }) {
   const { currentUser } = useApp();
   const { logout } = useAuth();
+  const { confirm, toast } = useFeedback();
   const router = useRouter();
   const [form, setForm] = useState({ name: currentUser.name || '', username: currentUser.username || '', bio: currentUser.bio || '', course: currentUser.course || '', faculty: currentUser.faculty || '', yearOfStudy: currentUser.yearOfStudy || 1, interests: currentUser.interests.join(', '), hobbies: currentUser.hobbies.join(', ') });
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
@@ -161,7 +163,8 @@ function EditProfileModal({ onClose }: { onClose: () => void }) {
   };
 
   const handleDeleteAccount = async () => {
-    if (!window.confirm('Delete your account permanently? This removes your profile, posts, and messages and cannot be undone.')) return;
+    const ok = await confirm({ title: 'Delete your account?', message: 'This permanently removes your profile, posts, and messages. This cannot be undone.', confirmText: 'Delete account', destructive: true });
+    if (!ok) return;
     setDeleting(true);
     try {
       const res = await fetch(`/api/users/${currentUser.id}`, { method: 'DELETE', credentials: 'include' });

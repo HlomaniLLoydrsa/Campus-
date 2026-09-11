@@ -7,6 +7,7 @@ import Sidebar from '@/components/layout/Sidebar';
 import BottomNav from '@/components/layout/BottomNav';
 import TopBar from '@/components/layout/TopBar';
 import { useApp } from '@/context/AppContext';
+import { useFeedback } from '@/context/FeedbackContext';
 import { serviceCategoryMeta, REQUEST_STATUS_LABEL } from '@/lib/services';
 import { ArrowLeft, MapPin, Clock, Star, MessageCircle, Bookmark, Flag, Trash2, GraduationCap, CalendarCheck } from 'lucide-react';
 import { formatTimeAgo } from '@/lib/utils';
@@ -16,6 +17,7 @@ export default function ServiceDetailPage() {
   const id = params.id as string;
   const router = useRouter();
   const { currentUser, getUserById, reportContent } = useApp();
+  const { confirm, toast } = useFeedback();
   const [s, setS] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [reported, setReported] = useState(false);
@@ -96,7 +98,7 @@ export default function ServiceDetailPage() {
             {/* Actions */}
             <div className="mt-5 flex flex-wrap gap-2">
               {isOwner ? (
-                <button onClick={async () => { if (confirm('Delete this listing?')) { await fetch(`/api/services/${id}`, { method: 'DELETE' }); router.push('/services'); } }} className="px-3 py-2 rounded-xl border border-red-200 text-red-500 text-sm flex items-center gap-1"><Trash2 size={15} /> Delete</button>
+                <button onClick={async () => { const ok = await confirm({ title: 'Delete this listing?', confirmText: 'Delete', destructive: true }); if (ok) { await fetch(`/api/services/${id}`, { method: 'DELETE' }); toast('Listing deleted'); router.push('/services'); } }} className="px-3 py-2 rounded-xl border border-red-200 text-red-500 text-sm flex items-center gap-1"><Trash2 size={15} /> Delete</button>
               ) : s.myRequest ? (
                 <span className="badge-pill bg-yellow-100 text-yellow-700 text-xs py-2 px-3">Request {REQUEST_STATUS_LABEL[s.myRequest.status]}</span>
               ) : (

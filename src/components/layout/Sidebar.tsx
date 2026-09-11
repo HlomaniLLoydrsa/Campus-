@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation';
 import { Home, Compass, Users, MessageCircle, Calendar, User, Heart, Eye, Sparkles, LogOut } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
 import { useAuth } from '@/context/AuthContext';
+import { useFeedback } from '@/context/FeedbackContext';
 import { useRouter } from 'next/navigation';
 import Logo from '@/components/Logo';
 
@@ -25,10 +26,14 @@ export default function Sidebar() {
   const pathname = usePathname();
   const { currentUser, conversations } = useApp();
   const { logout } = useAuth();
+  const { confirm, toast } = useFeedback();
   const router = useRouter();
   const totalUnread = conversations.reduce((sum, c) => sum + c.unreadCount, 0);
 
-  const handleLogout = () => { if (window.confirm('Are you sure you want to log out?')) { logout(); router.push('/welcome'); } };
+  const handleLogout = async () => {
+    const ok = await confirm({ title: 'Log out of VYBE?', confirmText: 'Log out' });
+    if (ok) { logout(); toast('You have been logged out'); router.push('/welcome'); }
+  };
 
   return (
     <aside className="hidden lg:flex flex-col w-64 h-screen sticky top-0 bg-campus-dark border-r border-white/10 p-4">

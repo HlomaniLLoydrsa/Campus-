@@ -10,6 +10,7 @@ import PostCard from '@/components/posts/PostCard';
 import ConnectActions from '@/components/connections/ConnectActions';
 import Avatar from '@/components/Avatar';
 import { useApp } from '@/context/AppContext';
+import { useFeedback } from '@/context/FeedbackContext';
 import { Plus, X, ImageIcon, ChevronLeft, ChevronRight, TrendingUp, Gamepad2, Calendar, Compass, Eye, Send, CalendarCheck } from 'lucide-react';
 import Link from 'next/link';
 import { formatTimeAgo } from '@/lib/utils';
@@ -198,6 +199,7 @@ function HomeContent() {
 }
 
 function StoryCreateModal({ onClose, onCreate }: { onClose: () => void; onCreate: (content: string, image: string | undefined, bg: string) => Promise<void> }) {
+  const { toast } = useFeedback();
   const [content, setContent] = useState('');
   const [bgColor, setBgColor] = useState(STORY_COLORS[0]);
   const [imageFile, setImageFile] = useState<File | null>(null);
@@ -208,7 +210,7 @@ function StoryCreateModal({ onClose, onCreate }: { onClose: () => void; onCreate
   const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.size > 10 * 1024 * 1024) { alert('Image must be less than 10MB'); return; }
+    if (file.size > 10 * 1024 * 1024) { toast('Image must be less than 10MB', 'error'); return; }
     setImageFile(file);
     const reader = new FileReader();
     reader.onload = (ev) => setImagePreview(ev.target?.result as string);

@@ -7,12 +7,14 @@ import Sidebar from '@/components/layout/Sidebar';
 import BottomNav from '@/components/layout/BottomNav';
 import TopBar from '@/components/layout/TopBar';
 import { taskTypeMeta, priorityMeta, countdown, PlannerModule } from '@/lib/planner';
+import { useFeedback } from '@/context/FeedbackContext';
 import TaskModal from '@/components/planner/TaskModal';
 import { ArrowLeft, Edit2, Trash2, CheckCircle2, RotateCcw, Clock, BookOpen, Plus, GraduationCap } from 'lucide-react';
 
 export default function PlannerTaskDetailPage() {
   const { id } = useParams() as { id: string };
   const router = useRouter();
+  const { confirm, toast } = useFeedback();
   const [t, setT] = useState<any>(null);
   const [modules, setModules] = useState<PlannerModule[]>([]);
   const [loading, setLoading] = useState(true);
@@ -47,7 +49,7 @@ export default function PlannerTaskDetailPage() {
             <button onClick={() => router.push('/planner/tasks')} className="flex items-center gap-1 text-sm text-campus-primary font-medium hover:underline"><ArrowLeft size={14} /> Tasks</button>
             <div className="flex items-center gap-2">
               <button onClick={() => setEditing(true)} className="p-2 rounded-lg hover:bg-gray-100 text-gray-500"><Edit2 size={16} /></button>
-              <button onClick={async () => { if (confirm('Delete this task?')) { await fetch(`/api/planner/tasks/${id}`, { method: 'DELETE' }); router.push('/planner/tasks'); } }} className="p-2 rounded-lg hover:bg-red-50 text-red-500"><Trash2 size={16} /></button>
+              <button onClick={async () => { const ok = await confirm({ title: 'Delete this task?', confirmText: 'Delete', destructive: true }); if (ok) { await fetch(`/api/planner/tasks/${id}`, { method: 'DELETE' }); toast('Task deleted'); router.push('/planner/tasks'); } }} className="p-2 rounded-lg hover:bg-red-50 text-red-500"><Trash2 size={16} /></button>
             </div>
           </div>
 

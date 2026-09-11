@@ -7,6 +7,7 @@ import Sidebar from '@/components/layout/Sidebar';
 import BottomNav from '@/components/layout/BottomNav';
 import TopBar from '@/components/layout/TopBar';
 import { TOPIC_STATUSES, topicStatusMeta, taskTypeMeta, countdown } from '@/lib/planner';
+import { useFeedback } from '@/context/FeedbackContext';
 import { ArrowLeft, Plus, X, Trash2, Archive } from 'lucide-react';
 
 type Tab = 'overview' | 'tasks' | 'topics';
@@ -14,6 +15,7 @@ type Tab = 'overview' | 'tasks' | 'topics';
 export default function ModuleWorkspacePage() {
   const { id } = useParams() as { id: string };
   const router = useRouter();
+  const { confirm, toast } = useFeedback();
   const [m, setM] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<Tab>('overview');
@@ -57,7 +59,7 @@ export default function ModuleWorkspacePage() {
             <button onClick={() => router.push('/planner/modules')} className="flex items-center gap-1 text-sm text-campus-primary font-medium hover:underline"><ArrowLeft size={14} /> Modules</button>
             <div className="flex items-center gap-2">
               <button onClick={async () => { await fetch(`/api/planner/modules/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'archive' }) }); router.push('/planner/modules'); }} className="p-2 rounded-lg hover:bg-gray-100 text-gray-500" title="Archive"><Archive size={16} /></button>
-              <button onClick={async () => { if (confirm('Delete this module and its tasks/topics?')) { await fetch(`/api/planner/modules/${id}`, { method: 'DELETE' }); router.push('/planner/modules'); } }} className="p-2 rounded-lg hover:bg-red-50 text-red-500"><Trash2 size={16} /></button>
+              <button onClick={async () => { const ok = await confirm({ title: 'Delete this module?', message: 'Its tasks and topics will be removed too.', confirmText: 'Delete', destructive: true }); if (ok) { await fetch(`/api/planner/modules/${id}`, { method: 'DELETE' }); toast('Module deleted'); router.push('/planner/modules'); } }} className="p-2 rounded-lg hover:bg-red-50 text-red-500"><Trash2 size={16} /></button>
             </div>
           </div>
 

@@ -7,6 +7,7 @@ import Sidebar from '@/components/layout/Sidebar';
 import BottomNav from '@/components/layout/BottomNav';
 import TopBar from '@/components/layout/TopBar';
 import { useApp } from '@/context/AppContext';
+import { useFeedback } from '@/context/FeedbackContext';
 import { LostFoundItem, lfCategoryMeta } from '@/lib/lostfound';
 import { ArrowLeft, MapPin, Calendar, Flag, Trash2, CheckCircle, Search as SearchIcon } from 'lucide-react';
 import { formatTimeAgo } from '@/lib/utils';
@@ -16,6 +17,7 @@ export default function LostFoundDetailPage() {
   const id = params.id as string;
   const router = useRouter();
   const { currentUser, getUserById, reportContent } = useApp();
+  const { confirm, toast } = useFeedback();
   const [item, setItem] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [reported, setReported] = useState(false);
@@ -78,7 +80,7 @@ export default function LostFoundDetailPage() {
                 {isOwner ? (
                   <>
                     {item.status !== 'recovered' && <button onClick={async () => { const d = await patch({ action: 'recover' }); if (d) setItem({ ...item, status: 'recovered' }); }} className="btn-primary text-sm flex items-center gap-1"><CheckCircle size={15} /> Mark Recovered</button>}
-                    <button onClick={async () => { if (confirm('Delete this report?')) { await fetch(`/api/lost-found/${id}`, { method: 'DELETE' }); router.push('/lost-found'); } }} className="px-3 py-2 rounded-xl border border-red-200 text-red-500 text-sm flex items-center gap-1"><Trash2 size={15} /> Delete</button>
+                    <button onClick={async () => { const ok = await confirm({ title: 'Delete this report?', confirmText: 'Delete', destructive: true }); if (ok) { await fetch(`/api/lost-found/${id}`, { method: 'DELETE' }); toast('Report deleted'); router.push('/lost-found'); } }} className="px-3 py-2 rounded-xl border border-red-200 text-red-500 text-sm flex items-center gap-1"><Trash2 size={15} /> Delete</button>
                   </>
                 ) : item.status !== 'recovered' ? (
                   <>
