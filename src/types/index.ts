@@ -37,6 +37,7 @@ export type NotificationType =
   | 'secret-admirer'
   | 'game-invitation'
   | 'game-answer'
+  | 'game-reveal'
   | 'planner-reminder'
   | 'mention'
   | 'new-connection'
@@ -185,7 +186,7 @@ export interface Notification {
   groupCount?: number;
   requestType?: RequestType;
   relatedId?: string;
-  relatedType?: 'request' | 'connection' | 'conversation' | 'post' | 'game' | 'resource' | 'lostfound' | 'service' | 'planner' | 'planner-task' | 'planner-session' | 'wingman';
+  relatedType?: 'request' | 'connection' | 'conversation' | 'post' | 'game' | 'resource' | 'lostfound' | 'service' | 'planner' | 'planner-task' | 'planner-session' | 'wingman' | 'profile' | 'secret-admirer';
 }
 
 export interface Badge {

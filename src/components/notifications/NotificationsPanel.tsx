@@ -31,6 +31,8 @@ export default function NotificationsPanel({ onClose }: Props) {
       case 'secret-admirer': return '👀';
       case 'wingman-activity': return '🏹';
       case 'game-invitation': return '🎮';
+      case 'game-answer': return '🎮';
+      case 'game-reveal': return '🎭';
       case 'shoutout': return '🎤';
       case 'mention': return '📢';
       default: return '🔔';

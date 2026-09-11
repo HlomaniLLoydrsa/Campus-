@@ -113,11 +113,12 @@ export default function CreatePost({ defaultType = 'normal', onClose }: { defaul
 
   return (
     <div className="card p-4">
-      {/* Type selector */}
-      <div className="flex items-center gap-2 mb-3 overflow-x-auto scrollbar-hide pb-1">
+      {/* Type selector — px/py padding gives the selected pill's ring room so the
+          horizontal scroll container never clips it (was showing a broken/hidden border). */}
+      <div className="flex items-center gap-2 mb-3 overflow-x-auto scrollbar-hide px-1 py-1">
         {postTypes.map(pt => (
           <button key={pt.type} onClick={() => { setSelectedType(pt.type); if (pt.type === 'confession') setIsAnonymous(true); }}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all ${selectedType === pt.type ? `${pt.color} ring-2 ring-offset-1 ring-current` : 'bg-gray-50 text-gray-500 hover:bg-gray-100'}`}>
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all ${selectedType === pt.type ? `${pt.color} ring-2 ring-current` : 'bg-gray-50 text-gray-500 hover:bg-gray-100'}`}>
             <span>{pt.icon}</span><span>{pt.label}</span>
           </button>
         ))}

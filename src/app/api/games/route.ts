@@ -175,5 +175,19 @@ export async function PATCH(request: Request) {
 
   await db.prepare('UPDATE games SET data = ? WHERE id = ?').run(JSON.stringify(data), gameId);
   await notifyCreatorOfAnswer();
+
+  // When the creator reveals the answer, let everyone who guessed know so they
+  // can come back and see if they were right. Deterministic id per (game, guesser).
+  if (action === 'revealTwoTruths' && game.creatorId === userId) {
+    const creator = await db.prepare('SELECT name FROM users WHERE id = ?').get(userId) as any;
+    const guessers: string[] = Array.from(new Set((data.guesses || []).map((g: any) => g.userId).filter((uid: string) => uid && uid !== userId)));
+    for (const guesserId of guessers) {
+      const nid = `ngr_${gameId}_${guesserId}`;
+      await db.prepare('INSERT OR IGNORE INTO notifications (id, userId, type, fromUserId, message, relatedId, relatedType, read) VALUES (?, ?, ?, ?, ?, ?, ?, 0)').run(
+        nid, guesserId, 'game-reveal', userId, `${creator?.name || 'Someone'} revealed the answer to "${game.title}"`, gameId, 'game'
+      );
+    }
+  }
+
   return NextResponse.json({ success: true, data });
 }

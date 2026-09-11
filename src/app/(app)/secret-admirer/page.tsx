@@ -1,18 +1,29 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef, Suspense } from 'react';
 import Sidebar from '@/components/layout/Sidebar';
 import BottomNav from '@/components/layout/BottomNav';
 import TopBar from '@/components/layout/TopBar';
 import { useApp } from '@/context/AppContext';
+import { useSearchParams } from 'next/navigation';
 import { Heart, Eye, EyeOff, Shield, Send, X, Sparkles } from 'lucide-react';
 import { formatTimeAgo } from '@/lib/utils';
 
-export default function SecretAdmirerPage() {
+function SecretAdmirerContent() {
   const { currentUser, secretAdmirers, sendSecretAdmirer, respondToAdmirer, users, getUserById } = useApp();
+  const searchParams = useSearchParams();
+  const highlightId = searchParams.get('highlight');
+  const highlightRef = useRef<HTMLDivElement | null>(null);
   const [showSend, setShowSend] = useState(false);
   const [selectedUser, setSelectedUser] = useState('');
   const [message, setMessage] = useState('');
+
+  // When arriving from a notification, scroll the highlighted message into view.
+  useEffect(() => {
+    if (highlightId && highlightRef.current) {
+      highlightRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }, [highlightId, secretAdmirers]);
 
   const receivedAdmirers = secretAdmirers.filter(sa => sa.toUserId === currentUser.id);
   const sentAdmirers = secretAdmirers.filter(sa => sa.fromUserId === currentUser.id);
@@ -108,8 +119,9 @@ export default function SecretAdmirerPage() {
               <div className="space-y-3">
                 {receivedAdmirers.map(admirer => {
                   const revealedSender = admirer.status === 'revealed' ? getUserById(admirer.fromUserId) : null;
+                  const isHighlighted = highlightId === admirer.id;
                   return (
-                  <div key={admirer.id} className="card p-5 bg-gradient-to-r from-pink-50/50 to-purple-50/50">
+                  <div key={admirer.id} ref={isHighlighted ? highlightRef : undefined} className={`card p-5 bg-gradient-to-r from-pink-50/50 to-purple-50/50 transition-all ${isHighlighted ? 'ring-2 ring-campus-accent' : ''}`}>
                     <div className="flex items-center gap-3 mb-3">
                       <div className="w-12 h-12 rounded-full bg-gradient-to-br from-pink-400 to-purple-400 flex items-center justify-center">
                         <span className="text-white text-xl">{admirer.status === 'revealed' ? '💘' : '👀'}</span>
@@ -123,7 +135,7 @@ export default function SecretAdmirerPage() {
 
                     {admirer.status === 'pending' && (
                       <div className="grid grid-cols-2 gap-2">
-                        <button onClick={() => respondToAdmirer(admirer.id, 'curious')} className="btn-primary text-sm flex items-center justify-center gap-1"><Eye size={14} /> I&apos;m Curious</button>
+                        <button onClick={() => respondToAdmirer(admirer.id, 'curious')} className="btn-primary text-sm flex items-center justify-center gap-1"><Eye size={14} /> See the sender</button>
                         <button onClick={() => respondToAdmirer(admirer.id, 'ignored')} className="btn-secondary text-sm flex items-center justify-center gap-1"><EyeOff size={14} /> Ignore</button>
                       </div>
                     )}
@@ -131,12 +143,9 @@ export default function SecretAdmirerPage() {
                       <div>
                         <div className="p-3 bg-campus-primary/10 rounded-xl text-center mb-2">
                           <Sparkles size={16} className="inline text-campus-primary mb-1" />
-                          <p className="text-sm font-medium text-campus-primary">You&apos;re curious! Reveal to see who it is (they must agree too).</p>
+                          <p className="text-sm font-medium text-campus-primary">You asked to see them. We&apos;ve let them know — if they agree to reveal, you&apos;ll be notified and can view their profile.</p>
                         </div>
-                        <div className="grid grid-cols-2 gap-2">
-                          <button onClick={() => respondToAdmirer(admirer.id, 'reveal')} className="btn-accent text-sm flex items-center justify-center gap-1"><Eye size={14} /> Reveal</button>
-                          <button onClick={() => respondToAdmirer(admirer.id, 'blocked')} className="btn-secondary text-sm flex items-center justify-center gap-1"><Shield size={14} /> Block</button>
-                        </div>
+                        <button onClick={() => respondToAdmirer(admirer.id, 'blocked')} className="btn-secondary text-sm w-full flex items-center justify-center gap-1"><Shield size={14} /> Block instead</button>
                       </div>
                     )}
                     {admirer.status === 'revealed' && (
@@ -185,7 +194,7 @@ export default function SecretAdmirerPage() {
                     </div>
                     {admirer.status === 'curious' && (
                       <div className="mt-3 p-3 bg-purple-50 rounded-xl">
-                        <p className="text-xs text-purple-700 mb-2">They&apos;re curious about you! Reveal your identity?</p>
+                        <p className="text-xs text-purple-700 mb-2">They want to see who you are! Reveal yourself?</p>
                         <button onClick={() => respondToAdmirer(admirer.id, 'reveal')} className="btn-accent text-xs flex items-center gap-1"><Eye size={12} /> Reveal myself</button>
                       </div>
                     )}
@@ -202,5 +211,13 @@ export default function SecretAdmirerPage() {
       </main>
       <BottomNav />
     </div>
+  );
+}
+
+export default function SecretAdmirerPage() {
+  return (
+    <Suspense fallback={null}>
+      <SecretAdmirerContent />
+    </Suspense>
   );
 }

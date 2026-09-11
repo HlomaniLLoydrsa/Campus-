@@ -33,9 +33,9 @@ export async function POST(request: Request) {
   const id = `sa_${crypto.randomUUID().slice(0, 8)}`;
   await db.prepare('INSERT INTO secret_admirers (id, fromUserId, toUserId, message, status) VALUES (?, ?, ?, ?, ?)').run(id, fromUserId, toUserId, message.trim(), 'pending');
 
-  // Notify recipient anonymously
+  // Notify recipient anonymously — link straight to the message + reveal options.
   const nid = `n_${crypto.randomUUID().slice(0, 8)}`;
-  await db.prepare('INSERT INTO notifications (id, userId, type, message, read) VALUES (?, ?, ?, ?, 0)').run(nid, toUserId, 'secret-admirer', 'You have a Secret Admirer 👀');
+  await db.prepare('INSERT INTO notifications (id, userId, type, message, relatedId, relatedType, read) VALUES (?, ?, ?, ?, ?, ?, 0)').run(nid, toUserId, 'secret-admirer', 'You have a Secret Admirer 👀', id, 'secret-admirer');
 
   return NextResponse.json({ id, fromUserId, toUserId, message, status: 'pending', revealConsent: { from: false, to: false } }, { status: 201 });
 }
@@ -60,9 +60,9 @@ export async function PATCH(request: Request) {
   if (action === 'curious') {
     // Recipient is curious — consents to reveal from their side
     await db.prepare("UPDATE secret_admirers SET status = 'curious', revealTo = 1 WHERE id = ?").run(id);
-    // Notify the sender that the recipient is curious (so sender can choose to reveal)
+    // Notify the sender that the recipient wants to see them (so sender can choose to reveal)
     const nid = `n_${crypto.randomUUID().slice(0, 8)}`;
-    await db.prepare('INSERT INTO notifications (id, userId, type, message, read) VALUES (?, ?, ?, ?, 0)').run(nid, sa.fromUserId, 'secret-admirer', 'Someone you admire is curious! Reveal yourself? 👀');
+    await db.prepare('INSERT INTO notifications (id, userId, type, message, relatedId, relatedType, read) VALUES (?, ?, ?, ?, ?, ?, 0)').run(nid, sa.fromUserId, 'secret-admirer', 'Someone you admire wants to see who you are. Reveal yourself? 👀', id, 'secret-admirer');
     return NextResponse.json({ success: true, status: 'curious' });
   }
 
@@ -81,8 +81,9 @@ export async function PATCH(request: Request) {
       const recipient = await db.prepare('SELECT name FROM users WHERE id = ?').get(sa.toUserId) as any;
       const n1 = `n_${crypto.randomUUID().slice(0, 8)}`;
       const n2 = `n_${crypto.randomUUID().slice(0, 8)}`;
-      await db.prepare('INSERT INTO notifications (id, userId, type, fromUserId, message, read) VALUES (?, ?, ?, ?, ?, 0)').run(n1, sa.toUserId, 'secret-admirer', sa.fromUserId, `Your secret admirer was ${sender?.name || 'someone'}! 💘`);
-      await db.prepare('INSERT INTO notifications (id, userId, type, fromUserId, message, read) VALUES (?, ?, ?, ?, ?, 0)').run(n2, sa.fromUserId, 'secret-admirer', sa.toUserId, `${recipient?.name || 'They'} now knows it was you! 💘`);
+      // Recipient's notification links straight to the sender's profile ("see the sender").
+      await db.prepare('INSERT INTO notifications (id, userId, type, fromUserId, message, relatedId, relatedType, read) VALUES (?, ?, ?, ?, ?, ?, ?, 0)').run(n1, sa.toUserId, 'secret-admirer', sa.fromUserId, `Your secret admirer was ${sender?.name || 'someone'}! 💘 Tap to see their profile.`, sa.fromUserId, 'profile');
+      await db.prepare('INSERT INTO notifications (id, userId, type, fromUserId, message, relatedId, relatedType, read) VALUES (?, ?, ?, ?, ?, ?, ?, 0)').run(n2, sa.fromUserId, 'secret-admirer', sa.toUserId, `${recipient?.name || 'They'} now knows it was you! 💘`, id, 'secret-admirer');
       return NextResponse.json({ success: true, status: 'revealed', revealed: true });
     }
     return NextResponse.json({ success: true, status: updated.status, revealed: false });

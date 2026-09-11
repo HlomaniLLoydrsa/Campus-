@@ -40,8 +40,10 @@ export function getNotificationHref(
       return '/planner';
     case 'wingman':
       return relatedId ? `/wingman?suggestion=${relatedId}` : '/wingman';
-    case 'game':
-      return relatedId ? `/games?open=${relatedId}` : '/games';
+    case 'profile':
+      return relatedId ? `/profile/${relatedId}` : '/';
+    case 'secret-admirer':
+      return relatedId ? `/secret-admirer?highlight=${relatedId}` : '/secret-admirer';
   }
 
   // Fall back on the notification type. Only the connection types below reach /connections.
@@ -76,15 +78,19 @@ export function getNotificationHref(
     // Games → the game (relatedId when available), else Games list
     case 'game-invitation':
     case 'game-answer':
+    case 'game-reveal':
       return relatedId ? `/games?open=${relatedId}` : '/games';
 
     // Wingman → the Wingman suggestion page
     case 'wingman-activity':
       return relatedId ? `/wingman?suggestion=${relatedId}` : '/wingman';
 
-    // Badges, secret-admirer, and anything else → stay on the notifications page.
-    case 'badge':
+    // Secret admirer → the Secret Admirer page (message + reveal options).
     case 'secret-admirer':
+      return relatedId ? `/secret-admirer?highlight=${relatedId}` : '/secret-admirer';
+
+    // Badges and anything else → stay on the notifications page.
+    case 'badge':
     default:
       return '/notifications';
   }
