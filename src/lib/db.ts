@@ -566,6 +566,8 @@ async function initializeDb() {
   await ensureColumn(c, "reports", "status", "TEXT DEFAULT 'pending'");
   // Admin role flag on users (server-side authorization for the admin area).
   await ensureColumn(c, 'users', 'isAdmin', 'INTEGER DEFAULT 0');
+  // Per-user privacy preferences, stored as a JSON blob.
+  await ensureColumn(c, 'users', 'privacySettings', 'TEXT');
 }
 
 async function ensureColumn(c: Client, table: string, column: string, type: string) {

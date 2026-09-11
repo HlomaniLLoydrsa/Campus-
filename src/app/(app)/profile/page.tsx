@@ -100,8 +100,10 @@ function EditProfileModal({ onClose }: { onClose: () => void }) {
   const [form, setForm] = useState({ name: currentUser.name || '', username: currentUser.username || '', bio: currentUser.bio || '', course: currentUser.course || '', faculty: currentUser.faculty || '', yearOfStudy: currentUser.yearOfStudy || 1, interests: currentUser.interests.join(', '), hobbies: currentUser.hobbies.join(', ') });
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = useState(currentUser.avatar || '');
+  const [removeAvatar, setRemoveAvatar] = useState(false);
   const [coverFile, setCoverFile] = useState<File | null>(null);
   const [coverPreview, setCoverPreview] = useState(currentUser.coverImage || '');
+  const [removeCover, setRemoveCover] = useState(false);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState('');
@@ -112,13 +114,19 @@ function EditProfileModal({ onClose }: { onClose: () => void }) {
     if (file.size > 10 * 1024 * 1024) { setError('Image must be less than 10MB'); return; }
     // Set the file synchronously so it's guaranteed present when Save runs,
     // even if the user clicks Save immediately. The preview loads separately.
-    if (type === 'avatar') setAvatarFile(file); else setCoverFile(file);
+    if (type === 'avatar') { setAvatarFile(file); setRemoveAvatar(false); }
+    else { setCoverFile(file); setRemoveCover(false); }
     const reader = new FileReader();
     reader.onload = (ev) => {
       if (type === 'avatar') setAvatarPreview(ev.target?.result as string);
       else setCoverPreview(ev.target?.result as string);
     };
     reader.readAsDataURL(file);
+  };
+
+  const handleRemovePhoto = (type: 'avatar' | 'cover') => {
+    if (type === 'avatar') { setAvatarFile(null); setAvatarPreview(''); setRemoveAvatar(true); }
+    else { setCoverFile(null); setCoverPreview(''); setRemoveCover(true); }
   };
 
   const uploadFile = async (file: File): Promise<string | null> => {
@@ -133,6 +141,8 @@ function EditProfileModal({ onClose }: { onClose: () => void }) {
     setSaving(true);
     let avatarUrl = currentUser.avatar || '';
     let coverUrl = currentUser.coverImage || '';
+    if (removeAvatar) avatarUrl = '';
+    if (removeCover) coverUrl = '';
     if (avatarFile) {
       const u = await uploadFile(avatarFile);
       if (!u) { setError('Could not upload your profile photo. Please try again.'); setSaving(false); return; }
@@ -184,7 +194,10 @@ function EditProfileModal({ onClose }: { onClose: () => void }) {
             <label className="text-xs font-medium text-gray-600 block mb-2">Profile Picture</label>
             <div className="flex items-center gap-4">
               {avatarPreview ? <img src={avatarPreview} alt="" className="w-20 h-20 rounded-full object-cover border-2 border-gray-200" /> : <div className="w-20 h-20 rounded-full bg-gray-100 flex items-center justify-center border-2 border-dashed border-gray-300"><Camera size={24} className="text-gray-400" /></div>}
-              <label className="btn-secondary text-sm cursor-pointer">Choose Photo<input type="file" accept="image/*" onChange={(e) => handleFileSelect(e, 'avatar')} className="hidden" /></label>
+              <div className="flex flex-col gap-2">
+                <label className="btn-secondary text-sm cursor-pointer text-center">{avatarPreview ? 'Change Photo' : 'Choose Photo'}<input type="file" accept="image/*" onChange={(e) => handleFileSelect(e, 'avatar')} className="hidden" /></label>
+                {avatarPreview && <button type="button" onClick={() => handleRemovePhoto('avatar')} className="text-sm font-medium text-red-600 hover:text-red-700">Remove photo</button>}
+              </div>
             </div>
           </div>
           <div>
@@ -193,7 +206,10 @@ function EditProfileModal({ onClose }: { onClose: () => void }) {
               className="w-full h-24 rounded-xl bg-gradient-to-r from-campus-dark via-campus-primary to-campus-secondary bg-cover bg-center mb-2"
               style={coverPreview ? { backgroundImage: `url('${coverPreview}')` } : undefined}
             />
-            <label className="btn-secondary text-sm cursor-pointer inline-block">{coverPreview ? 'Change Cover' : 'Choose Cover'}<input type="file" accept="image/*" onChange={(e) => handleFileSelect(e, 'cover')} className="hidden" /></label>
+            <div className="flex items-center gap-3">
+              <label className="btn-secondary text-sm cursor-pointer inline-block">{coverPreview ? 'Change Cover' : 'Choose Cover'}<input type="file" accept="image/*" onChange={(e) => handleFileSelect(e, 'cover')} className="hidden" /></label>
+              {coverPreview && <button type="button" onClick={() => handleRemovePhoto('cover')} className="text-sm font-medium text-red-600 hover:text-red-700">Remove cover</button>}
+            </div>
           </div>
           <div className="grid grid-cols-2 gap-3"><div><label className="text-xs font-medium text-gray-600 block mb-1">Name *</label><input type="text" value={form.name} onChange={(e) => setForm(p => ({ ...p, name: e.target.value }))} className="input-field" placeholder="Your name" /></div><div><label className="text-xs font-medium text-gray-600 block mb-1">Username *</label><input type="text" value={form.username} onChange={(e) => setForm(p => ({ ...p, username: e.target.value }))} className="input-field" placeholder="username" /></div></div>
           <div><label className="text-xs font-medium text-gray-600 block mb-1">Bio</label><textarea value={form.bio} onChange={(e) => setForm(p => ({ ...p, bio: e.target.value }))} rows={2} className="input-field resize-none" placeholder="About you..." /></div>

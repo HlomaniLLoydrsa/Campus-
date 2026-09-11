@@ -2,9 +2,14 @@ import type { Config } from 'tailwindcss';
 
 const config: Config = {
   content: [
-    './src/pages/**/*.{js,ts,jsx,tsx,mdx}',
-    './src/components/**/*.{js,ts,jsx,tsx,mdx}',
-    './src/app/**/*.{js,ts,jsx,tsx,mdx}',
+    './src/**/*.{js,ts,jsx,tsx,mdx}',
+  ],
+  safelist: [
+    // Classes used in src/context (FeedbackContext modal) that may not otherwise be scanned.
+    // bg-red-600 is only ever used as a hover variant elsewhere, so the base utility must be safelisted.
+    'bg-red-600',
+    'hover:bg-red-700',
+    'bg-campus-primary',
   ],
   theme: {
     extend: {

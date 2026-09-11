@@ -4,7 +4,9 @@ import { getSessionUserId } from '@/lib/auth';
 
 // Never expose the password hash. Email is only returned to the account owner.
 const PUBLIC_COLUMNS =
-  'id, name, username, avatar, coverImage, bio, course, faculty, yearOfStudy, interests, hobbies, isOnline, lastSeen, wingmanEnabled, createdAt';
+  'id, name, username, avatar, coverImage, bio, course, faculty, yearOfStudy, interests, hobbies, isOnline, lastSeen, wingmanEnabled, privacySettings, createdAt';
+
+const DEFAULT_PRIVACY = { showProfile: 'everyone', showInterests: 'everyone', allowRequests: 'everyone', allowMessages: 'connections-only', showOnlineStatus: true, showRelationship: false };
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -20,8 +22,11 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     hobbies: JSON.parse(user.hobbies || '[]'),
     isOnline: !!user.isOnline,
     wingmanEnabled: !!user.wingmanEnabled,
+    privacySettings: user.privacySettings ? { ...DEFAULT_PRIVACY, ...safeParse(user.privacySettings) } : DEFAULT_PRIVACY,
   });
 }
+
+function safeParse(s: string) { try { return JSON.parse(s) || {}; } catch { return {}; } }
 
 // PATCH /api/users/:id — update user profile (owner only)
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -51,11 +56,11 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
   const fields: string[] = [];
   const values: any[] = [];
-  const allowedFields = ['name', 'username', 'avatar', 'coverImage', 'bio', 'course', 'faculty', 'yearOfStudy', 'interests', 'hobbies', 'wingmanEnabled'];
+  const allowedFields = ['name', 'username', 'avatar', 'coverImage', 'bio', 'course', 'faculty', 'yearOfStudy', 'interests', 'hobbies', 'wingmanEnabled', 'privacySettings'];
 
   for (const field of allowedFields) {
     if (body[field] !== undefined) {
-      if (field === 'interests' || field === 'hobbies') {
+      if (field === 'interests' || field === 'hobbies' || field === 'privacySettings') {
         fields.push(`${field} = ?`);
         values.push(JSON.stringify(body[field]));
       } else if (field === 'wingmanEnabled') {
@@ -75,13 +80,14 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   values.push(id);
   await db.prepare(`UPDATE users SET ${fields.join(', ')} WHERE id = ?`).run(...values);
 
-  const updated = await db.prepare('SELECT * FROM users WHERE id = ?').get(id) as any;
+  const updated = await db.prepare(`SELECT ${PUBLIC_COLUMNS}, email FROM users WHERE id = ?`).get(id) as any;
   return NextResponse.json({
     ...updated,
     interests: JSON.parse(updated.interests || '[]'),
     hobbies: JSON.parse(updated.hobbies || '[]'),
     isOnline: !!updated.isOnline,
     wingmanEnabled: !!updated.wingmanEnabled,
+    privacySettings: updated.privacySettings ? { ...DEFAULT_PRIVACY, ...safeParse(updated.privacySettings) } : DEFAULT_PRIVACY,
   });
 }
 

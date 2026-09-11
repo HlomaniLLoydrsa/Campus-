@@ -68,12 +68,14 @@ export default function ExplorePage() {
   const [chosenFriend, setChosenFriend] = useState<{ id: string; name: string } | null>(null);
   const [friendSearch, setFriendSearch] = useState('');
   const [creating, setCreating] = useState(false);
+  // In the "play with anyone" flow: 'list' shows existing public games to play; 'create' builds a new one.
+  const [anyoneStep, setAnyoneStep] = useState<'list' | 'create'>('list');
   const [tab, setTab] = useState('discover');
 
   const isGameType = (id: string): id is 'would-you-rather' | 'never-have-i-ever' | 'two-truths-one-lie' =>
     id === 'would-you-rather' || id === 'never-have-i-ever' || id === 'two-truths-one-lie';
 
-  const closeGameModal = () => { setSelectedCard(null); setPlayMode(null); setChosenFriend(null); setCreating(false); setFriendSearch(''); };
+  const closeGameModal = () => { setSelectedCard(null); setPlayMode(null); setChosenFriend(null); setCreating(false); setFriendSearch(''); setAnyoneStep('list'); };
 
   // Create a public game (play with anyone) then open the shared list.
   const createAnyoneGame = async (title: string, data: any) => {
@@ -82,7 +84,7 @@ export default function ExplorePage() {
     const id = await createGame(selectedCard, title, data, { visibility: 'public' });
     setCreating(false);
     closeGameModal();
-    if (id) router.push('/games');
+    router.push(id ? `/games?open=${id}` : '/games');
   };
 
   // Create a private game and send it to the chosen friend's inbox.
@@ -321,8 +323,8 @@ export default function ExplorePage() {
                 {!playMode && (
                   <div className="space-y-3">
                     <p className="text-sm text-gray-600 mb-2">How would you like to play?</p>
-                    <button onClick={() => setPlayMode('anyone')} className="w-full p-4 rounded-xl border-2 border-gray-200 hover:border-campus-accent hover:bg-campus-accent/5 transition-all text-left">
-                      <div className="flex items-center gap-3"><div className="w-10 h-10 rounded-full bg-campus-accent/10 flex items-center justify-center"><Zap size={20} className="text-campus-accent" /></div><div><p className="font-semibold text-sm">Play with Anyone</p><p className="text-xs text-gray-500">Post it publicly — anyone online can play</p></div></div>
+                    <button onClick={() => { setPlayMode('anyone'); setAnyoneStep('list'); }} className="w-full p-4 rounded-xl border-2 border-gray-200 hover:border-campus-accent hover:bg-campus-accent/5 transition-all text-left">
+                      <div className="flex items-center gap-3"><div className="w-10 h-10 rounded-full bg-campus-accent/10 flex items-center justify-center"><Zap size={20} className="text-campus-accent" /></div><div><p className="font-semibold text-sm">Play with Anyone</p><p className="text-xs text-gray-500">Join a public game — or create your own</p></div></div>
                     </button>
                     <button onClick={() => setPlayMode('friend')} className="w-full p-4 rounded-xl border-2 border-gray-200 hover:border-campus-primary hover:bg-campus-primary/5 transition-all text-left">
                       <div className="flex items-center gap-3"><div className="w-10 h-10 rounded-full bg-campus-primary/10 flex items-center justify-center"><Users size={20} className="text-campus-primary" /></div><div><p className="font-semibold text-sm">Play with a Friend</p><p className="text-xs text-gray-500">Send it straight to a friend&apos;s inbox</p></div></div>
@@ -331,10 +333,50 @@ export default function ExplorePage() {
                 )}
 
                 {/* Step 2 (anyone): build the game, then create publicly */}
-                {playMode === 'anyone' && (
+                {/* Step 2 (anyone) — list: show public games of this type to play, plus a create option */}
+                {playMode === 'anyone' && anyoneStep === 'list' && (() => {
+                  const openGames = activeGames.filter(g => g.type === selectedCard && (g.visibility || 'public') === 'public');
+                  return (
+                    <div className="space-y-3">
+                      <p className="text-sm text-gray-600">Pick a game to play — or create your own.</p>
+                      {openGames.length > 0 ? (
+                        <div className="space-y-2">
+                          {openGames.map(g => {
+                            const creator = users.find(u => u.id === g.creatorId);
+                            const isMine = g.creatorId === currentUser.id;
+                            return (
+                              <button
+                                key={g.id}
+                                onClick={() => { closeGameModal(); router.push(`/games?open=${g.id}`); }}
+                                className="w-full p-3 rounded-xl border border-gray-200 hover:border-campus-accent hover:bg-campus-accent/5 transition-all text-left"
+                              >
+                                <p className="font-medium text-sm truncate">{g.title}</p>
+                                <p className="text-xs text-gray-500 mt-0.5 flex items-center gap-1">
+                                  <span>by {isMine ? 'you' : (creator?.name || 'Someone')}</span>
+                                  <span>·</span>
+                                  <span>{(g.participants?.length || 0)} played</span>
+                                </p>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <div className="text-center py-6 text-gray-400">
+                          <p className="text-sm">No public games yet</p>
+                          <p className="text-xs mt-1">Be the first to create one!</p>
+                        </div>
+                      )}
+                      <button onClick={() => setAnyoneStep('create')} className="btn-primary w-full text-sm flex items-center justify-center gap-1"><Zap size={15} /> Create a new game</button>
+                      <button onClick={() => setPlayMode(null)} className="btn-secondary w-full text-sm">Back</button>
+                    </div>
+                  );
+                })()}
+
+                {/* Step 2 (anyone) — create: build the game, then post it publicly */}
+                {playMode === 'anyone' && anyoneStep === 'create' && (
                   <div>
                     <p className="text-sm text-gray-600 mb-3">Set up your game — anyone can join and respond.</p>
-                    <GameBuilder type={selectedCard} submitLabel={creating ? 'Creating…' : 'Create Game'} onBack={() => setPlayMode(null)} onSubmit={createAnyoneGame} />
+                    <GameBuilder type={selectedCard} submitLabel={creating ? 'Creating…' : 'Create Game'} onBack={() => setAnyoneStep('list')} onSubmit={createAnyoneGame} />
                   </div>
                 )}
 

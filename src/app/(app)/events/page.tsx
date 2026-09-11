@@ -5,13 +5,38 @@ import Sidebar from '@/components/layout/Sidebar';
 import BottomNav from '@/components/layout/BottomNav';
 import TopBar from '@/components/layout/TopBar';
 import { useApp } from '@/context/AppContext';
-import { Calendar, MapPin, Users, Plus, X, Check, LogOut } from 'lucide-react';
+import { Calendar, MapPin, Users, Plus, X, Check, LogOut, Pencil } from 'lucide-react';
 import { formatDate, formatTime, getCategoryColor, generateId } from '@/lib/utils';
 
 export default function EventsPage() {
-  const { posts, addPost, currentUser, joinEvent, leaveEvent, approveEventJoin, rejectEventJoin, getUserById } = useApp();
+  const { posts, addPost, editPost, currentUser, joinEvent, leaveEvent, approveEventJoin, rejectEventJoin, getUserById } = useApp();
   const [showCreate, setShowCreate] = useState(false);
   const [eventForm, setEventForm] = useState({ name: '', description: '', date: '', time: '', location: '', maxParticipants: 10, neededCount: 0, category: 'hangout', isAnonymous: false, joinType: 'approval' as 'direct' | 'approval' });
+  // Event editing: which post we're editing + the working copy of its editable fields.
+  const [editingPostId, setEditingPostId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState({ name: '', description: '', date: '', time: '', location: '', maxParticipants: 10, neededCount: 0, category: 'hangout' });
+  const [savingEdit, setSavingEdit] = useState(false);
+
+  const openEdit = (post: any, event: any) => {
+    setEditingPostId(post.id);
+    setEditForm({
+      name: event.name || '', description: event.description || '', date: event.date || '', time: event.time || '',
+      location: event.location || '', maxParticipants: event.maxParticipants || 10, neededCount: event.neededCount || 0,
+      category: event.category || 'hangout',
+    });
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingPostId || !editForm.name || !editForm.date || !editForm.time || !editForm.location) return;
+    setSavingEdit(true);
+    const ok = await editPost(editingPostId, editForm.description || `Join me for: ${editForm.name}!`, {
+      name: editForm.name, description: editForm.description, date: editForm.date, time: editForm.time,
+      location: editForm.location, maxParticipants: editForm.maxParticipants, neededCount: editForm.neededCount || undefined,
+      category: editForm.category,
+    });
+    setSavingEdit(false);
+    if (ok) setEditingPostId(null);
+  };
 
   const events = posts.filter(p => p.eventData).map(p => ({ post: p, event: p.eventData! }));
 
@@ -85,6 +110,37 @@ export default function EventsPage() {
             </div>
           )}
 
+          {/* Edit modal — host only */}
+          {editingPostId && (
+            <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+              <div className="bg-white rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="font-bold text-lg">Edit Event</h2>
+                  <button onClick={() => setEditingPostId(null)} className="p-1 rounded-lg hover:bg-gray-100"><X size={20} /></button>
+                </div>
+                <div className="space-y-4">
+                  <input type="text" value={editForm.name} onChange={(e) => setEditForm(p => ({ ...p, name: e.target.value }))} placeholder="Event name" className="input-field" />
+                  <textarea value={editForm.description} onChange={(e) => setEditForm(p => ({ ...p, description: e.target.value }))} placeholder="Tell people about your event..." rows={3} className="input-field resize-none" />
+                  <div className="grid grid-cols-2 gap-3">
+                    <input type="date" value={editForm.date} onChange={(e) => setEditForm(p => ({ ...p, date: e.target.value }))} className="input-field" />
+                    <input type="time" value={editForm.time} onChange={(e) => setEditForm(p => ({ ...p, time: e.target.value }))} className="input-field" />
+                  </div>
+                  <input type="text" value={editForm.location} onChange={(e) => setEditForm(p => ({ ...p, location: e.target.value }))} placeholder="Location" className="input-field" />
+                  <div className="grid grid-cols-2 gap-3">
+                    <div><label className="text-xs font-medium text-gray-600 mb-1 block">Max people</label><input type="number" value={editForm.maxParticipants} onChange={(e) => setEditForm(p => ({ ...p, maxParticipants: parseInt(e.target.value) || 10 }))} min={2} className="input-field" /></div>
+                    <div><label className="text-xs font-medium text-gray-600 mb-1 block">People needed</label><input type="number" value={editForm.neededCount} onChange={(e) => setEditForm(p => ({ ...p, neededCount: parseInt(e.target.value) || 0 }))} min={0} className="input-field" /></div>
+                  </div>
+                  <select value={editForm.category} onChange={(e) => setEditForm(p => ({ ...p, category: e.target.value }))} className="input-field">
+                    <option value="party">Party</option><option value="clubbing">Clubbing</option><option value="movies">Movies</option>
+                    <option value="sports">Sports</option><option value="gaming">Gaming</option><option value="study">Study Session</option>
+                    <option value="hangout">Hangout</option><option value="roadtrip">Road Trip</option><option value="campus">Campus Activity</option><option value="other">Other</option>
+                  </select>
+                  <button onClick={handleSaveEdit} disabled={savingEdit || !editForm.name || !editForm.date || !editForm.time || !editForm.location} className="btn-primary w-full disabled:opacity-50">{savingEdit ? 'Saving…' : 'Save Changes'}</button>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Events list */}
           <div className="space-y-4">
             {events.length === 0 ? (
@@ -127,7 +183,10 @@ export default function EventsPage() {
                         {event.participants.length > 4 && <div className="w-7 h-7 rounded-full border-2 border-white bg-gray-100 flex items-center justify-center text-[10px] font-bold text-gray-500">+{event.participants.length - 4}</div>}
                       </div>
                       {isHost ? (
-                        <span className="badge-pill bg-campus-primary/10 text-campus-primary text-xs font-semibold">You're hosting</span>
+                        <div className="flex items-center gap-2">
+                          <span className="badge-pill bg-campus-primary/10 text-campus-primary text-xs font-semibold">You're hosting</span>
+                          <button onClick={() => openEdit(post, event)} className="btn-secondary text-sm flex items-center gap-1"><Pencil size={14} /> Edit</button>
+                        </div>
                       ) : isParticipant ? (
                         <button onClick={() => leaveEvent(post.id)} className="btn-secondary text-sm flex items-center gap-1"><LogOut size={14} /> Leave</button>
                       ) : isPending ? (
