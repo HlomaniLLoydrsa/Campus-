@@ -8,6 +8,7 @@ import BottomNav from '@/components/layout/BottomNav';
 import TopBar from '@/components/layout/TopBar';
 import { useApp } from '@/context/AppContext';
 import { useFeedback } from '@/context/FeedbackContext';
+import ReportModal from '@/components/ReportModal';
 import { serviceCategoryMeta, REQUEST_STATUS_LABEL } from '@/lib/services';
 import { ArrowLeft, MapPin, Clock, Star, MessageCircle, Bookmark, Flag, Trash2, GraduationCap, CalendarCheck } from 'lucide-react';
 import { formatTimeAgo } from '@/lib/utils';
@@ -16,11 +17,12 @@ export default function ServiceDetailPage() {
   const params = useParams();
   const id = params.id as string;
   const router = useRouter();
-  const { currentUser, getUserById, reportContent } = useApp();
+  const { currentUser, getUserById } = useApp();
   const { confirm, toast } = useFeedback();
   const [s, setS] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [reported, setReported] = useState(false);
+  const [showReport, setShowReport] = useState(false);
   const [showRequest, setShowRequest] = useState(false);
   const [note, setNote] = useState('');
   const [reviewRating, setReviewRating] = useState(0);
@@ -106,7 +108,7 @@ export default function ServiceDetailPage() {
                   <button onClick={() => setShowRequest(true)} className="btn-primary text-sm flex items-center gap-1"><CalendarCheck size={15} /> {s.kind === 'tutor' ? 'Request Session' : 'Request Service'}</button>
                   <button onClick={messageProvider} className="px-3 py-2 rounded-xl border border-gray-200 text-gray-600 text-sm flex items-center gap-1"><MessageCircle size={15} /> Message</button>
                   <button onClick={async () => { const d = await patch({ action: s.saved ? 'unsave' : 'save' }); if (d) setS({ ...s, saved: d.saved }); }} className={`p-2 rounded-xl border ${s.saved ? 'bg-campus-primary/10 border-campus-primary/30 text-campus-primary' : 'border-gray-200 text-gray-500'}`}><Bookmark size={18} fill={s.saved ? 'currentColor' : 'none'} /></button>
-                  <button onClick={() => { reportContent('service', s.id, ''); setReported(true); }} disabled={reported} className="p-2 rounded-xl border border-gray-200 text-gray-500 disabled:opacity-50"><Flag size={18} /></button>
+                  <button onClick={() => setShowReport(true)} disabled={reported} className="p-2 rounded-xl border border-gray-200 text-gray-500 disabled:opacity-50" title={reported ? 'Reported' : 'Report'}><Flag size={18} /></button>
                 </>
               )}
             </div>
@@ -185,6 +187,8 @@ export default function ServiceDetailPage() {
             </div>
           </div>
         )}
+
+        {showReport && <ReportModal targetType="service" targetId={s.id} onClose={() => setShowReport(false)} onReported={() => setReported(true)} />}
       </main>
       <BottomNav />
     </div>

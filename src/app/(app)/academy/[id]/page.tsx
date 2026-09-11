@@ -8,6 +8,7 @@ import BottomNav from '@/components/layout/BottomNav';
 import TopBar from '@/components/layout/TopBar';
 import { useApp } from '@/context/AppContext';
 import { useFeedback } from '@/context/FeedbackContext';
+import ReportModal from '@/components/ReportModal';
 import { AcademyResource, typeMeta, formatFileSize } from '@/lib/academy';
 import { ArrowLeft, Download, Star, Bookmark, Flag, Trash2, BookOpen, CalendarPlus, X, Check } from 'lucide-react';
 
@@ -15,9 +16,10 @@ export default function AcademyResourcePage() {
   const params = useParams();
   const id = params.id as string;
   const router = useRouter();
-  const { currentUser, getUserById, reportContent } = useApp();
+  const { currentUser, getUserById } = useApp();
   const { confirm, toast } = useFeedback();
   const [r, setR] = useState<AcademyResource | null>(null);
+  const [showReport, setShowReport] = useState(false);
   const [loading, setLoading] = useState(true);
   const [reported, setReported] = useState(false);
   const [showPlanner, setShowPlanner] = useState(false);
@@ -57,8 +59,7 @@ export default function AcademyResourcePage() {
 
   const handleReport = () => {
     if (!r) return;
-    reportContent('resource', r.id, '');
-    setReported(true);
+    setShowReport(true);
   };
 
   const handleDelete = async () => {
@@ -147,6 +148,7 @@ export default function AcademyResourcePage() {
         </div>
 
         {showPlanner && <AddToPlannerModal resource={r} onClose={() => setShowPlanner(false)} />}
+        {showReport && <ReportModal targetType="resource" targetId={r.id} onClose={() => setShowReport(false)} onReported={() => setReported(true)} />}
       </main>
       <BottomNav />
     </div>

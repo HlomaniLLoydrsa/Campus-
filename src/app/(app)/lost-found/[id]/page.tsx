@@ -8,6 +8,7 @@ import BottomNav from '@/components/layout/BottomNav';
 import TopBar from '@/components/layout/TopBar';
 import { useApp } from '@/context/AppContext';
 import { useFeedback } from '@/context/FeedbackContext';
+import ReportModal from '@/components/ReportModal';
 import { LostFoundItem, lfCategoryMeta } from '@/lib/lostfound';
 import { ArrowLeft, MapPin, Calendar, Flag, Trash2, CheckCircle, Search as SearchIcon } from 'lucide-react';
 import { formatTimeAgo } from '@/lib/utils';
@@ -16,9 +17,10 @@ export default function LostFoundDetailPage() {
   const params = useParams();
   const id = params.id as string;
   const router = useRouter();
-  const { currentUser, getUserById, reportContent } = useApp();
+  const { currentUser, getUserById } = useApp();
   const { confirm, toast } = useFeedback();
   const [item, setItem] = useState<any>(null);
+  const [showReport, setShowReport] = useState(false);
   const [loading, setLoading] = useState(true);
   const [reported, setReported] = useState(false);
   const [showClaim, setShowClaim] = useState(false);
@@ -85,7 +87,7 @@ export default function LostFoundDetailPage() {
                 ) : item.status !== 'recovered' ? (
                   <>
                     <button onClick={() => setShowClaim(true)} disabled={claimSent} className="btn-primary text-sm disabled:opacity-50">{claimSent ? 'Claim sent ✓' : (item.kind === 'found' ? "This is mine" : "I found this")}</button>
-                    <button onClick={() => { reportContent('lostfound', item.id, ''); setReported(true); }} disabled={reported} className="px-3 py-2 rounded-xl border border-gray-200 text-gray-500 text-sm flex items-center gap-1 disabled:opacity-50"><Flag size={15} /> {reported ? 'Reported' : 'Report'}</button>
+                    <button onClick={() => setShowReport(true)} disabled={reported} className="px-3 py-2 rounded-xl border border-gray-200 text-gray-500 text-sm flex items-center gap-1 disabled:opacity-50"><Flag size={15} /> {reported ? 'Reported' : 'Report'}</button>
                   </>
                 ) : null}
               </div>
@@ -153,6 +155,8 @@ export default function LostFoundDetailPage() {
             </div>
           </div>
         )}
+
+        {showReport && <ReportModal targetType="lostfound" targetId={item.id} onClose={() => setShowReport(false)} onReported={() => setReported(true)} />}
       </main>
       <BottomNav />
     </div>

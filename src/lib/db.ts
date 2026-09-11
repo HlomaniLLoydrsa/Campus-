@@ -561,6 +561,11 @@ async function initializeDb() {
   await ensureColumn(c, 'comments', 'parentId', 'TEXT');
   // Posts can be edited — track an edit timestamp so we can show an "Edited" indicator.
   await ensureColumn(c, 'posts', 'editedAt', 'TEXT');
+  // Reports carry an optional free-text description and a moderation status.
+  await ensureColumn(c, 'reports', 'description', 'TEXT');
+  await ensureColumn(c, "reports", "status", "TEXT DEFAULT 'pending'");
+  // Admin role flag on users (server-side authorization for the admin area).
+  await ensureColumn(c, 'users', 'isAdmin', 'INTEGER DEFAULT 0');
 }
 
 async function ensureColumn(c: Client, table: string, column: string, type: string) {

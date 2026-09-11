@@ -59,7 +59,7 @@ interface AppContextType {
   sharePost: (postId: string) => void;
   editPost: (postId: string, content: string, eventData?: any) => Promise<boolean>;
   removePostImage: (postId: string, imageUrl: string) => void;
-  reportContent: (targetType: string, targetId: string, reason: string) => void;
+  reportContent: (targetType: string, targetId: string, reason: string, description?: string) => void;
   deletePost: (postId: string) => void;
   blockUser: (userId: string) => void;
   badges: { id: string; name: string; emoji: string; description: string; earned: boolean; earnedAt: string | null }[];
@@ -533,9 +533,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
     fetch(`/api/posts/${postId}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'removeImage', userId: currentUser.id, imageUrl }) }).catch(() => {});
   }, [currentUser.id]);
 
-  const reportContent = useCallback((targetType: string, targetId: string, reason: string) => {
-    fetch('/api/reports', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ reporterId: currentUser.id, targetType, targetId, reason }) }).catch(() => {});
-  }, [currentUser.id]);
+  const reportContent = useCallback((targetType: string, targetId: string, reason: string, description?: string) => {
+    fetch('/api/reports', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ targetType, targetId, reason, description: description || '' }) }).catch(() => {});
+  }, []);
 
   const deletePost = useCallback((postId: string) => {
     setPosts(prev => prev.filter(p => p.id !== postId));

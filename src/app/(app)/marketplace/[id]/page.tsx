@@ -8,6 +8,7 @@ import BottomNav from '@/components/layout/BottomNav';
 import TopBar from '@/components/layout/TopBar';
 import { useApp } from '@/context/AppContext';
 import { useFeedback } from '@/context/FeedbackContext';
+import ReportModal from '@/components/ReportModal';
 import { MarketListing, mktCategoryMeta, conditionLabel, formatPrice } from '@/lib/marketplace';
 import { ArrowLeft, MapPin, MessageCircle, Bookmark, Flag, Trash2, Tag, CheckCircle, RotateCcw } from 'lucide-react';
 import { formatTimeAgo } from '@/lib/utils';
@@ -16,9 +17,10 @@ export default function ListingDetailPage() {
   const params = useParams();
   const id = params.id as string;
   const router = useRouter();
-  const { currentUser, getUserById, reportContent } = useApp();
+  const { currentUser, getUserById } = useApp();
   const { confirm, toast } = useFeedback();
   const [it, setIt] = useState<MarketListing | null>(null);
+  const [showReport, setShowReport] = useState(false);
   const [loading, setLoading] = useState(true);
   const [reported, setReported] = useState(false);
   const [imgIdx, setImgIdx] = useState(0);
@@ -97,7 +99,7 @@ export default function ListingDetailPage() {
                   <>
                     <button onClick={() => setMessaging(true)} disabled={msgSent} className="btn-primary text-sm flex items-center gap-1 disabled:opacity-50"><MessageCircle size={15} /> {msgSent ? 'Message sent' : 'Message Seller'}</button>
                     <button onClick={async () => { const d = await patch({ action: it.saved ? 'unsave' : 'save' }); if (d) setIt({ ...it, saved: d.saved }); }} className={`p-2 rounded-xl border ${it.saved ? 'bg-campus-primary/10 border-campus-primary/30 text-campus-primary' : 'border-gray-200 text-gray-500'}`}><Bookmark size={18} fill={it.saved ? 'currentColor' : 'none'} /></button>
-                    <button onClick={() => { reportContent('listing', it.id, ''); setReported(true); }} disabled={reported} className="p-2 rounded-xl border border-gray-200 text-gray-500 disabled:opacity-50"><Flag size={18} /></button>
+                    <button onClick={() => setShowReport(true)} disabled={reported} className="p-2 rounded-xl border border-gray-200 text-gray-500 disabled:opacity-50" title={reported ? 'Reported' : 'Report'}><Flag size={18} /></button>
                   </>
                 )}
               </div>
@@ -118,6 +120,8 @@ export default function ListingDetailPage() {
             </div>
           </div>
         )}
+
+        {showReport && <ReportModal targetType="listing" targetId={it.id} onClose={() => setShowReport(false)} onReported={() => setReported(true)} />}
       </main>
       <BottomNav />
     </div>

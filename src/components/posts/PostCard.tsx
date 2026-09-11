@@ -8,13 +8,14 @@ import { useApp } from '@/context/AppContext';
 import { useFeedback } from '@/context/FeedbackContext';
 import { formatTimeAgo, getPostTypeStyle } from '@/lib/utils';
 import Avatar from '@/components/Avatar';
+import ReportModal from '@/components/ReportModal';
 
 interface Props {
   post: Post;
 }
 
 export default function PostCard({ post }: Props) {
-  const { currentUser, likePost, savePost, addComment, getUserById, sharePost, editPost, removePostImage, reportContent, deletePost, connections, getOrCreateDirectConversation, sendMessage } = useApp();
+  const { currentUser, likePost, savePost, addComment, getUserById, sharePost, editPost, removePostImage, deletePost, connections, getOrCreateDirectConversation, sendMessage } = useApp();
   const { confirm, toast } = useFeedback();
   const [showComments, setShowComments] = useState(false);
   const [commentText, setCommentText] = useState('');
@@ -25,6 +26,7 @@ export default function PostCard({ post }: Props) {
   const [savingEdit, setSavingEdit] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
   const [reported, setReported] = useState(false);
+  const [showReport, setShowReport] = useState(false);
   const [showShare, setShowShare] = useState(false);
   const [sentTo, setSentTo] = useState<string[]>([]);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
@@ -75,9 +77,8 @@ export default function PostCard({ post }: Props) {
   };
 
   const handleReport = () => {
-    reportContent('post', post.id, '');
-    setReported(true);
     setShowMenu(false);
+    setShowReport(true);
   };
 
   const handleDelete = async () => {
@@ -331,6 +332,11 @@ export default function PostCard({ post }: Props) {
       {/* Image lightbox */}
       {lightboxIndex !== null && post.images && (
         <Lightbox images={post.images.filter(Boolean)} index={lightboxIndex} onClose={() => setLightboxIndex(null)} onNav={setLightboxIndex} />
+      )}
+
+      {/* Report modal */}
+      {showReport && (
+        <ReportModal targetType="post" targetId={post.id} onClose={() => setShowReport(false)} onReported={() => setReported(true)} />
       )}
 
       {/* Share to friends modal */}
