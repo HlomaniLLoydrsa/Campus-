@@ -70,7 +70,7 @@ export default function PlannerDashboardPage() {
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-5">
                 <OverviewCard icon={Clock} label="Due today" value={data.counts.dueToday} tint="text-blue-600 bg-blue-50" />
                 <OverviewCard icon={AlertTriangle} label="Overdue" value={data.counts.overdue} tint="text-red-600 bg-red-50" />
-                <OverviewCard icon={Target} label="Exams ahead" value={data.counts.upcomingExams} tint="text-purple-600 bg-purple-50" />
+                <Link href="/planner/exams"><OverviewCard icon={Target} label="Exams ahead" value={data.counts.upcomingExams} tint="text-purple-600 bg-purple-50" /></Link>
                 <OverviewCard icon={BookOpen} label="Study hrs (wk)" value={data.counts.plannedHoursWeek} tint="text-teal-600 bg-teal-50" />
                 <OverviewCard icon={CheckCircle2} label="Completed" value={data.counts.completed} tint="text-green-600 bg-green-50" />
                 <OverviewCard icon={ListTodo} label="Open tasks" value={data.counts.openTasks} tint="text-campus-primary bg-campus-primary/10" />

@@ -57,6 +57,23 @@ export const TOPIC_STATUSES: { value: TopicStatus; label: string; color: string 
   { value: 'mastered', label: 'Mastered', color: 'bg-green-100 text-green-700' },
 ];
 
+// Self-reported readiness weight per topic status (0..1). Used for exam prep progress.
+export const TOPIC_READINESS: Record<TopicStatus, number> = {
+  'not-started': 0,
+  'learning': 0.25,
+  'revising': 0.5,
+  'confident': 0.8,
+  'mastered': 1,
+};
+
+/** Exam prep progress (0..100) from associated topics' self-reported readiness.
+ *  Falls back to the task's own progress when there are no linked topics. */
+export function examPrepProgress(topics: { status: TopicStatus }[], fallbackProgress = 0): number {
+  if (!topics.length) return Math.max(0, Math.min(100, Math.round(fallbackProgress)));
+  const total = topics.reduce((sum, t) => sum + (TOPIC_READINESS[t.status] ?? 0), 0);
+  return Math.round((total / topics.length) * 100);
+}
+
 export function taskTypeMeta(v: string) { return TASK_TYPES.find(t => t.value === v) || TASK_TYPES[TASK_TYPES.length - 1]; }
 export function priorityMeta(v: string) { return PRIORITIES.find(p => p.value === v) || PRIORITIES[1]; }
 export function topicStatusMeta(v: string) { return TOPIC_STATUSES.find(s => s.value === v) || TOPIC_STATUSES[0]; }

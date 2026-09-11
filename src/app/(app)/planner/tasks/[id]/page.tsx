@@ -8,7 +8,7 @@ import BottomNav from '@/components/layout/BottomNav';
 import TopBar from '@/components/layout/TopBar';
 import { taskTypeMeta, priorityMeta, countdown, PlannerModule } from '@/lib/planner';
 import TaskModal from '@/components/planner/TaskModal';
-import { ArrowLeft, Edit2, Trash2, CheckCircle2, RotateCcw, Clock, BookOpen, Plus } from 'lucide-react';
+import { ArrowLeft, Edit2, Trash2, CheckCircle2, RotateCcw, Clock, BookOpen, Plus, GraduationCap } from 'lucide-react';
 
 export default function PlannerTaskDetailPage() {
   const { id } = useParams() as { id: string };
@@ -94,6 +94,9 @@ export default function PlannerTaskDetailPage() {
                 <button onClick={() => patch({ action: 'complete' })} className="btn-primary text-sm flex items-center gap-1"><CheckCircle2 size={15} /> Mark complete</button>
               )}
               <Link href={`/planner/study?taskId=${t.id}${t.moduleId ? `&moduleId=${t.moduleId}` : ''}`} className="btn-secondary text-sm flex items-center gap-1"><Plus size={15} /> Study session</Link>
+              {['exam', 'test', 'quiz'].includes(t.type) && (
+                <Link href={`/planner/exams/${t.id}`} className="btn-secondary text-sm flex items-center gap-1"><GraduationCap size={15} /> Exam prep</Link>
+              )}
             </div>
           </div>
 
