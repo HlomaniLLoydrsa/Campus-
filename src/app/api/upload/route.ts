@@ -31,15 +31,19 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'No file provided' }, { status: 400 });
     }
 
-    // Accept ANY image type
-    if (!file.type.startsWith('image/')) {
+    // Accept ANY image — by MIME type, or (when the browser sends a generic/blank
+    // MIME, common with some phone galleries) by a recognized image extension.
+    const IMAGE_EXTS = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'avif', 'heic', 'heif', 'bmp', 'svg', 'tiff', 'tif', 'jfif'];
+    const nameExt = (file.name.split('.').pop() || '').toLowerCase();
+    const looksLikeImage = file.type.startsWith('image/') || IMAGE_EXTS.includes(nameExt);
+    if (!looksLikeImage) {
       return NextResponse.json({ error: 'Please upload an image file.' }, { status: 400 });
     }
 
-    // Validate file size (max 10MB)
-    const maxSize = 10 * 1024 * 1024;
+    // Validate file size (max 15MB — phone photos can be large)
+    const maxSize = 15 * 1024 * 1024;
     if (file.size > maxSize) {
-      return NextResponse.json({ error: 'Image too large. Maximum 10MB.' }, { status: 400 });
+      return NextResponse.json({ error: 'Image too large. Maximum 15MB.' }, { status: 400 });
     }
 
     // Derive a clean extension

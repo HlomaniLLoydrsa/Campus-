@@ -63,12 +63,13 @@ export async function POST(request: Request) {
 
   const db = await getDb();
   const id = `lf_${crypto.randomUUID().slice(0, 8)}`;
+  const createdAt = new Date().toISOString();
   await db.prepare(
-    `INSERT INTO lost_found (id, reporterId, kind, itemName, category, description, photo, location, campus, dateOn, secretQuestion, status)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'open')`
+    `INSERT INTO lost_found (id, reporterId, kind, itemName, category, description, photo, location, campus, dateOn, secretQuestion, status, createdAt)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'open', ?)`
   ).run(
     id, reporterId, kind, itemName.trim(), cat, (description || '').trim(), photo || null,
-    (location || '').trim(), (campus || '').trim(), (dateOn || '').trim(), (secretQuestion || '').trim()
+    (location || '').trim(), (campus || '').trim(), (dateOn || '').trim(), (secretQuestion || '').trim(), createdAt
   );
 
   // Matching: look for OPEN items of the opposite kind in the same category with

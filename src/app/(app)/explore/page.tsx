@@ -38,7 +38,7 @@ const exploreCards: GameCard[] = [
 const ECOSYSTEM: { label: string; emoji: string; color: string; href?: string }[] = [
   { label: 'Academy', emoji: '📚', color: 'bg-blue-100', href: '/academy' },
   { label: 'Events', emoji: '📅', color: 'bg-green-100', href: '/events' },
-  { label: 'Marketplace', emoji: '🛒', color: 'bg-amber-100' },
+  { label: 'Marketplace', emoji: '🛒', color: 'bg-amber-100', href: '/marketplace' },
   { label: 'Lost & Found', emoji: '🔎', color: 'bg-orange-100', href: '/lost-found' },
   { label: 'Jobs & Gigs', emoji: '💼', color: 'bg-indigo-100' },
   { label: 'Accommodation', emoji: '🏠', color: 'bg-teal-100' },

@@ -358,6 +358,37 @@ async function initializeDb() {
     CREATE INDEX IF NOT EXISTS idx_lf_reporter ON lost_found(reporterId);
     CREATE INDEX IF NOT EXISTS idx_lf_created ON lost_found(createdAt);
     CREATE INDEX IF NOT EXISTS idx_lf_claims_item ON lost_found_claims(itemId);
+
+    -- ── VYBE Marketplace ──────────────────────────────────────────
+    CREATE TABLE IF NOT EXISTS marketplace_listings (
+      id TEXT PRIMARY KEY,
+      sellerId TEXT NOT NULL,
+      title TEXT NOT NULL,
+      description TEXT DEFAULT '',
+      price REAL DEFAULT 0,
+      category TEXT DEFAULT 'other',
+      condition TEXT DEFAULT 'good',
+      images TEXT DEFAULT '[]',
+      campus TEXT DEFAULT '',
+      status TEXT DEFAULT 'available',            -- 'available' | 'sold'
+      createdAt TEXT DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS marketplace_saves (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      listingId TEXT NOT NULL,
+      userId TEXT NOT NULL,
+      createdAt TEXT DEFAULT (datetime('now')),
+      UNIQUE(listingId, userId)
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_mkt_seller ON marketplace_listings(sellerId);
+    CREATE INDEX IF NOT EXISTS idx_mkt_category ON marketplace_listings(category);
+    CREATE INDEX IF NOT EXISTS idx_mkt_status ON marketplace_listings(status);
+    CREATE INDEX IF NOT EXISTS idx_mkt_campus ON marketplace_listings(campus);
+    CREATE INDEX IF NOT EXISTS idx_mkt_created ON marketplace_listings(createdAt);
+    CREATE INDEX IF NOT EXISTS idx_mkt_price ON marketplace_listings(price);
+    CREATE INDEX IF NOT EXISTS idx_mkt_saves_user ON marketplace_saves(userId);
   `);
 
   // Safe additive migrations for databases created before newer columns existed.

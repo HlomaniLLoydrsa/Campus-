@@ -1,7 +1,26 @@
+/**
+ * Parse a date string robustly. SQLite `datetime('now')` returns UTC like
+ * "2026-08-26 09:00:00" with NO timezone marker — JS would treat that as LOCAL
+ * time, throwing "X ago" off by the timezone offset. Normalize such strings to UTC.
+ */
+export function parseDate(input: string): Date | null {
+  if (!input) return null;
+  let s = String(input).trim();
+  // "YYYY-MM-DD HH:MM:SS" (space, no T, no Z) → treat as UTC
+  if (/^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}(:\d{2})?$/.test(s)) {
+    s = s.replace(' ', 'T') + 'Z';
+  }
+  const d = new Date(s);
+  return isNaN(d.getTime()) ? null : d;
+}
+
 export function formatTimeAgo(dateString: string): string {
-  const date = new Date(dateString);
+  const date = parseDate(dateString);
+  if (!date) return 'just now';
   const now = new Date();
-  const seconds = Math.floor((now.getTime() - date.getTime()) / 1000);
+  let seconds = Math.floor((now.getTime() - date.getTime()) / 1000);
+  // Clock skew / just-created rows can read slightly in the future → treat as now.
+  if (seconds < 0) seconds = 0;
 
   if (seconds < 60) return 'just now';
   const minutes = Math.floor(seconds / 60);
