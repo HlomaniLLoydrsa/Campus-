@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
-import { MessageCircle, Users, Gamepad2, Heart, Calendar, Sparkles } from 'lucide-react';
+import { MessageCircle, Users, Gamepad2, Heart, Calendar, Sparkles, GraduationCap, ShoppingBag, CalendarCheck } from 'lucide-react';
 import Logo from '@/components/Logo';
 
 // Typewriter effect that types out the full string then loops.
@@ -82,6 +82,9 @@ export default function WelcomePage() {
             { icon: Heart, label: 'Dating', color: 'bg-rose-500' },
             { icon: Calendar, label: 'Events', color: 'bg-amber-500' },
             { icon: Sparkles, label: 'Discover', color: 'bg-purple-500' },
+            { icon: GraduationCap, label: 'Academy', color: 'bg-blue-500' },
+            { icon: ShoppingBag, label: 'Market', color: 'bg-teal-500' },
+            { icon: CalendarCheck, label: 'Planner', color: 'bg-fuchsia-500' },
           ].map(f => (
             <div key={f.label} className="flex flex-col items-center gap-2">
               <div className={`w-12 h-12 rounded-xl ${f.color} shadow-lg flex items-center justify-center`}>
