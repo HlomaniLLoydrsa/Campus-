@@ -5,6 +5,12 @@ const CONTENT_TYPES: Record<string, string> = {
   jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', gif: 'image/gif',
   webp: 'image/webp', avif: 'image/avif', heic: 'image/heic', heif: 'image/heif',
   bmp: 'image/bmp', svg: 'image/svg+xml', tiff: 'image/tiff',
+  // Academy document types
+  pdf: 'application/pdf', txt: 'text/plain', csv: 'text/csv', rtf: 'application/rtf',
+  doc: 'application/msword', docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  ppt: 'application/vnd.ms-powerpoint', pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+  xls: 'application/vnd.ms-excel', xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  odt: 'application/vnd.oasis.opendocument.text', zip: 'application/zip',
 };
 
 // GET /api/uploads/:filename — serve an uploaded image (Netlify Blobs in prod, disk locally)

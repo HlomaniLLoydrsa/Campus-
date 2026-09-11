@@ -26,6 +26,8 @@ export function getNotificationHref(
       return relatedId ? `/?post=${relatedId}` : '/';
     case 'game':
       return relatedId ? `/explore?game=${relatedId}` : '/explore';
+    case 'resource':
+      return relatedId ? `/academy/${relatedId}` : '/academy';
   }
 
   // Fall back on the notification type. Only the connection types below reach /connections.

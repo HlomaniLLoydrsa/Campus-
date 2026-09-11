@@ -34,6 +34,22 @@ const exploreCards: GameCard[] = [
   { id: 'wingman', title: 'Wingman Mode', description: 'Let friends help you connect', emoji: '🏹', gradient: 'from-indigo-500 to-blue-600', bgImage: '/images/wingman-bg.svg', link: '/wingman' },
 ];
 
+// VYBE ecosystem modules. href = live; undefined = "Soon".
+const ECOSYSTEM: { label: string; emoji: string; color: string; href?: string }[] = [
+  { label: 'Academy', emoji: '📚', color: 'bg-blue-100', href: '/academy' },
+  { label: 'Events', emoji: '📅', color: 'bg-green-100', href: '/events' },
+  { label: 'Marketplace', emoji: '🛒', color: 'bg-amber-100' },
+  { label: 'Lost & Found', emoji: '🔎', color: 'bg-orange-100' },
+  { label: 'Jobs & Gigs', emoji: '💼', color: 'bg-indigo-100' },
+  { label: 'Accommodation', emoji: '🏠', color: 'bg-teal-100' },
+  { label: 'Tutors', emoji: '🎓', color: 'bg-purple-100' },
+  { label: 'Opportunities', emoji: '🚀', color: 'bg-rose-100' },
+  { label: 'Communities', emoji: '🧑‍🤝‍🧑', color: 'bg-cyan-100' },
+  { label: 'Help', emoji: '🆘', color: 'bg-red-100' },
+  { label: 'Noticeboard', emoji: '📢', color: 'bg-yellow-100' },
+  { label: 'Campus', emoji: '🏫', color: 'bg-sky-100' },
+];
+
 const TABS = [
   { id: 'discover', label: 'Discover', icon: Compass },
   { id: 'trending', label: 'Trending', icon: TrendingUp },
@@ -131,6 +147,28 @@ export default function ExplorePage() {
           {/* DISCOVER (feature launcher) */}
           {tab === 'discover' && (
             <>
+              {/* VYBE Ecosystem — the gateway to every module */}
+              <div className="mb-6">
+                <h2 className="font-bold text-sm text-gray-700 mb-3">The Digital Campus</h2>
+                <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
+                  {ECOSYSTEM.map(cat => {
+                    const inner = (
+                      <>
+                        <div className={`w-11 h-11 rounded-2xl ${cat.color} flex items-center justify-center text-xl shadow-sm`}>{cat.emoji}</div>
+                        <span className="text-[11px] font-medium text-gray-700 mt-1.5 text-center leading-tight">{cat.label}</span>
+                        {!cat.href && <span className="text-[9px] text-gray-400">Soon</span>}
+                      </>
+                    );
+                    return cat.href ? (
+                      <Link key={cat.label} href={cat.href} className="flex flex-col items-center p-2 rounded-2xl hover:bg-gray-50 transition-colors">{inner}</Link>
+                    ) : (
+                      <div key={cat.label} className="flex flex-col items-center p-2 rounded-2xl opacity-60">{inner}</div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <h2 className="font-bold text-sm text-gray-700 mb-3">Play a game</h2>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                 {exploreCards.map(card => {
                   const cardInner = (

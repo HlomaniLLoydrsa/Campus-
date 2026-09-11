@@ -278,6 +278,51 @@ async function initializeDb() {
       earnedAt TEXT DEFAULT (datetime('now')),
       UNIQUE(userId, badgeId)
     );
+
+    -- ── VYBE Academy ──────────────────────────────────────────────
+    CREATE TABLE IF NOT EXISTS academy_resources (
+      id TEXT PRIMARY KEY,
+      uploaderId TEXT NOT NULL,
+      title TEXT NOT NULL,
+      type TEXT NOT NULL DEFAULT 'notes',
+      institution TEXT DEFAULT '',
+      faculty TEXT DEFAULT '',
+      course TEXT DEFAULT '',
+      module TEXT DEFAULT '',
+      year TEXT DEFAULT '',
+      semester TEXT DEFAULT '',
+      description TEXT DEFAULT '',
+      fileUrl TEXT NOT NULL,
+      fileType TEXT DEFAULT '',
+      fileSize INTEGER DEFAULT 0,
+      downloads INTEGER DEFAULT 0,
+      createdAt TEXT DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS academy_ratings (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      resourceId TEXT NOT NULL,
+      userId TEXT NOT NULL,
+      rating INTEGER NOT NULL,
+      createdAt TEXT DEFAULT (datetime('now')),
+      UNIQUE(resourceId, userId)
+    );
+
+    CREATE TABLE IF NOT EXISTS academy_saves (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      resourceId TEXT NOT NULL,
+      userId TEXT NOT NULL,
+      createdAt TEXT DEFAULT (datetime('now')),
+      UNIQUE(resourceId, userId)
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_academy_module ON academy_resources(module);
+    CREATE INDEX IF NOT EXISTS idx_academy_course ON academy_resources(course);
+    CREATE INDEX IF NOT EXISTS idx_academy_type ON academy_resources(type);
+    CREATE INDEX IF NOT EXISTS idx_academy_uploader ON academy_resources(uploaderId);
+    CREATE INDEX IF NOT EXISTS idx_academy_created ON academy_resources(createdAt);
+    CREATE INDEX IF NOT EXISTS idx_academy_ratings_resource ON academy_ratings(resourceId);
+    CREATE INDEX IF NOT EXISTS idx_academy_saves_user ON academy_saves(userId);
   `);
 
   // Safe additive migrations for databases created before newer columns existed.
