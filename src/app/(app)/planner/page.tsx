@@ -119,7 +119,10 @@ export default function PlannerDashboardPage() {
 
               {/* WORKLOAD SNAPSHOT */}
               <div className="card p-4 mb-5 bg-gradient-to-r from-teal-50 to-blue-50 border-teal-100">
-                <h3 className="font-bold text-sm mb-2">This week</h3>
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="font-bold text-sm">This week</h3>
+                  <Link href="/planner/semester" className="text-xs text-campus-primary font-medium">My Semester →</Link>
+                </div>
                 <div className="grid grid-cols-3 gap-2 text-center">
                   <div><p className="text-lg font-bold text-campus-primary">{data.week.taskCount}</p><p className="text-[11px] text-gray-500">deadlines</p></div>
                   <div><p className="text-lg font-bold text-teal-600">{data.week.sessionCount}</p><p className="text-[11px] text-gray-500">sessions</p></div>

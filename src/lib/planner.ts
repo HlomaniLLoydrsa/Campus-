@@ -74,6 +74,24 @@ export function examPrepProgress(topics: { status: TopicStatus }[], fallbackProg
   return Math.round((total / topics.length) * 100);
 }
 
+// Non-stressful workload label from planned study hours in a week.
+// Deliberately gentle — never alarming, never guilt-inducing.
+export function workloadLabel(hours: number): { label: string; tone: 'calm' | 'steady' | 'full' } {
+  if (hours <= 0) return { label: 'Open week', tone: 'calm' };
+  if (hours < 6) return { label: 'Light and manageable', tone: 'calm' };
+  if (hours < 14) return { label: 'A steady rhythm', tone: 'steady' };
+  return { label: 'A full week — pace yourself', tone: 'full' };
+}
+
+// Encouraging progress label from a 0..100 percentage.
+export function progressLabel(pct: number): string {
+  if (pct >= 90) return 'Nearly there';
+  if (pct >= 60) return 'Good momentum';
+  if (pct >= 30) return 'Getting into it';
+  if (pct > 0) return 'Just started';
+  return 'Ready when you are';
+}
+
 export function taskTypeMeta(v: string) { return TASK_TYPES.find(t => t.value === v) || TASK_TYPES[TASK_TYPES.length - 1]; }
 export function priorityMeta(v: string) { return PRIORITIES.find(p => p.value === v) || PRIORITIES[1]; }
 export function topicStatusMeta(v: string) { return TOPIC_STATUSES.find(s => s.value === v) || TOPIC_STATUSES[0]; }

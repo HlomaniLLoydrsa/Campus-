@@ -10,7 +10,7 @@ import PostCard from '@/components/posts/PostCard';
 import ConnectActions from '@/components/connections/ConnectActions';
 import Avatar from '@/components/Avatar';
 import { useApp } from '@/context/AppContext';
-import { Plus, X, ImageIcon, ChevronLeft, ChevronRight, TrendingUp, Gamepad2, Calendar, Compass, Eye, Send } from 'lucide-react';
+import { Plus, X, ImageIcon, ChevronLeft, ChevronRight, TrendingUp, Gamepad2, Calendar, Compass, Eye, Send, CalendarCheck } from 'lucide-react';
 import Link from 'next/link';
 import { formatTimeAgo } from '@/lib/utils';
 import { Story } from '@/types';
@@ -133,10 +133,11 @@ function HomeContent() {
           )}
 
           {/* Quick links strip */}
-          <div className="grid grid-cols-4 gap-2">
+          <div className="grid grid-cols-5 gap-2">
             <Link href="/explore" className="card p-3 flex flex-col items-center gap-1 hover:bg-gray-50 transition-colors"><TrendingUp size={18} className="text-orange-500" /><span className="text-[10px] font-medium text-gray-600">Trending</span></Link>
             <Link href="/events" className="card p-3 flex flex-col items-center gap-1 hover:bg-gray-50 transition-colors"><Calendar size={18} className="text-green-500" /><span className="text-[10px] font-medium text-gray-600">Events {eventsCount > 0 ? `(${eventsCount})` : ''}</span></Link>
             <Link href="/games" className="card p-3 flex flex-col items-center gap-1 hover:bg-gray-50 transition-colors"><Gamepad2 size={18} className="text-indigo-500" /><span className="text-[10px] font-medium text-gray-600">Games {activeGamesCount > 0 ? `(${activeGamesCount})` : ''}</span></Link>
+            <Link href="/planner" className="card p-3 flex flex-col items-center gap-1 hover:bg-gray-50 transition-colors"><CalendarCheck size={18} className="text-fuchsia-500" /><span className="text-[10px] font-medium text-gray-600">Planner</span></Link>
             <Link href="/explore" className="card p-3 flex flex-col items-center gap-1 hover:bg-gray-50 transition-colors"><Compass size={18} className="text-campus-primary" /><span className="text-[10px] font-medium text-gray-600">Explore</span></Link>
           </div>
 
