@@ -161,6 +161,8 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
   }
   await db.prepare('DELETE FROM comments WHERE postId = ?').run(id);
   await db.prepare("DELETE FROM notifications WHERE relatedType = 'post' AND relatedId = ?").run(id);
+  // Clean up event RSVPs when an event post is deleted (harmless no-op for non-event posts).
+  await db.prepare('DELETE FROM event_participants WHERE postId = ?').run(id);
   await db.prepare('DELETE FROM posts WHERE id = ?').run(id);
   return NextResponse.json({ success: true });
 }

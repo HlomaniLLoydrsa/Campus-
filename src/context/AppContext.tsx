@@ -486,8 +486,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const leaveEvent = useCallback((postId: string) => {
     setPosts(prev => prev.map(p => {
-      // Organizer cannot leave their own event
-      if (p.id !== postId || !p.eventData || !p.eventData.participants.includes(currentUser.id) || p.authorId === currentUser.id) return p;
+      // Organizer cannot leave their own event (owner check works for anonymous events too)
+      if (p.id !== postId || !p.eventData || !p.eventData.participants.includes(currentUser.id) || (p.ownerId || p.authorId) === currentUser.id) return p;
       return { ...p, eventData: { ...p.eventData, participants: p.eventData.participants.filter(id => id !== currentUser.id), currentParticipants: p.eventData.currentParticipants - 1 } };
     }));
     fetch('/api/events', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ postId, userId: currentUser.id, action: 'leave' }) }).catch(() => {});

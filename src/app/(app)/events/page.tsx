@@ -98,7 +98,8 @@ export default function EventsPage() {
               const isParticipant = event.participants.includes(currentUser.id);
               const isPending = event.pendingRequests.includes(currentUser.id);
               const isFull = event.currentParticipants >= event.maxParticipants;
-              const isHost = !post.isAnonymous && post.authorId === currentUser.id;
+              // The real owner is the host — works for anonymous events too (ownerId holds identity).
+              const isHost = (post.ownerId || post.authorId) === currentUser.id && !!currentUser.id;
 
               return (
                 <div key={post.id} className="card overflow-hidden">
