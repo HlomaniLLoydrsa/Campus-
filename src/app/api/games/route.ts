@@ -124,10 +124,24 @@ export async function PATCH(request: Request) {
   const data = JSON.parse(game.data);
   // Auto-join the player as a participant when they interact
   let participants: string[] = JSON.parse(game.participants || '[]');
-  if (userId && !participants.includes(userId)) {
+  const wasParticipant = participants.includes(userId);
+  if (userId && !wasParticipant) {
     participants = [...participants, userId];
     await db.prepare('UPDATE games SET participants = ? WHERE id = ?').run(JSON.stringify(participants), gameId);
   }
+
+  // Notify the creator the first time someone submits an answer to their game.
+  // Deterministic id per (game, responder) so re-voting never spams the creator.
+  const notifyCreatorOfAnswer = async () => {
+    if (!game.creatorId || game.creatorId === userId) return;
+    const answerActions = ['voteWouldYouRather', 'voteNeverHaveIEver', 'guessTwoTruths'];
+    if (!answerActions.includes(action)) return;
+    const responder = await db.prepare('SELECT name FROM users WHERE id = ?').get(userId) as any;
+    const nid = `ngm_${gameId}_${userId}`;
+    await db.prepare('INSERT OR IGNORE INTO notifications (id, userId, type, fromUserId, message, relatedId, relatedType, read) VALUES (?, ?, ?, ?, ?, ?, ?, 0)').run(
+      nid, game.creatorId, 'game-answer', userId, `${responder?.name || 'Someone'} answered your game "${game.title}"`, gameId, 'game'
+    );
+  };
 
   if (action === 'voteWouldYouRather') {
     data.votesA = (data.votesA || []).filter((id: string) => id !== userId);
@@ -160,5 +174,6 @@ export async function PATCH(request: Request) {
   }
 
   await db.prepare('UPDATE games SET data = ? WHERE id = ?').run(JSON.stringify(data), gameId);
+  await notifyCreatorOfAnswer();
   return NextResponse.json({ success: true, data });
 }

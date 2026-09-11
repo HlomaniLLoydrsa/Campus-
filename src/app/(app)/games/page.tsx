@@ -27,6 +27,14 @@ function GamesContent() {
   const [showCreate, setShowCreate] = useState(false);
   // A private (friend) game opened from the inbox — fetched individually since it's not in the public list.
   const [privateGame, setPrivateGame] = useState<Game | null>(null);
+  // Pending (not-yet-submitted) answer selections — cleared once submitted.
+  const [pendingWYR, setPendingWYR] = useState<'A' | 'B' | null>(null);
+  const [pendingGuess, setPendingGuess] = useState<number | null>(null);
+  const [pendingNHIE, setPendingNHIE] = useState<Record<number, 'iHave' | 'iHaveNot'>>({});
+  const [submitting, setSubmitting] = useState(false);
+
+  // Reset pending selections whenever the open game changes.
+  useEffect(() => { setPendingWYR(null); setPendingGuess(null); setPendingNHIE({}); }, [selectedGame]);
 
   const respondersOf = (g: Game): string[] => {
     // Everyone who has interacted with the game (participants minus the creator).
@@ -167,8 +175,13 @@ function GamesContent() {
                 const votedA = data.votesA.includes(currentUser.id);
                 const votedB = data.votesB.includes(currentUser.id);
                 const hasVoted = votedA || votedB;
+                const isCreator = selected.creatorId === currentUser.id;
                 const percentA = totalVotes > 0 ? Math.round((data.votesA.length / totalVotes) * 100) : 50;
                 const percentB = 100 - percentA;
+                // Show results once the viewer has voted (or is the creator). Otherwise they only pick + submit.
+                const showResults = hasVoted || isCreator;
+                const pick = (opt: 'A' | 'B') => votedA || votedB ? null : setPendingWYR(opt);
+                const submit = async () => { if (!pendingWYR) return; setSubmitting(true); await voteWouldYouRather(selected.id, pendingWYR); setPendingWYR(null); setSubmitting(false); toast('Answer submitted'); };
 
                 return (
                   <div className="card p-6">
@@ -179,29 +192,36 @@ function GamesContent() {
                     </div>
                     <div className="space-y-4">
                       <button
-                        onClick={() => voteWouldYouRather(selected.id, 'A')}
-                        className={`w-full p-5 rounded-xl border-2 text-left transition-all ${votedA ? 'border-campus-primary bg-campus-primary/5 ring-2 ring-campus-primary/20' : 'border-gray-200 hover:border-campus-primary/50'}`}
+                        onClick={() => pick('A')}
+                        disabled={hasVoted || isCreator}
+                        className={`w-full p-5 rounded-xl border-2 text-left transition-all ${votedA || pendingWYR === 'A' ? 'border-campus-primary bg-campus-primary/5 ring-2 ring-campus-primary/20' : 'border-gray-200 hover:border-campus-primary/50 disabled:hover:border-gray-200'}`}
                       >
                         <div className="flex items-center justify-between">
                           <p className="font-medium text-sm">{data.optionA}</p>
-                          {hasVoted && <span className="text-lg font-bold text-campus-primary">{percentA}%</span>}
+                          {showResults && <span className="text-lg font-bold text-campus-primary">{percentA}%</span>}
                         </div>
-                        {hasVoted && <div className="mt-3 h-2.5 bg-gray-100 rounded-full overflow-hidden"><div className="h-full bg-campus-primary rounded-full transition-all duration-500" style={{ width: `${percentA}%` }} /></div>}
+                        {showResults && <div className="mt-3 h-2.5 bg-gray-100 rounded-full overflow-hidden"><div className="h-full bg-campus-primary rounded-full transition-all duration-500" style={{ width: `${percentA}%` }} /></div>}
                         {votedA && <p className="text-xs text-campus-primary mt-2 flex items-center gap-1"><Check size={12} /> Your choice</p>}
+                        {!hasVoted && pendingWYR === 'A' && <p className="text-xs text-campus-primary mt-2 flex items-center gap-1"><Check size={12} /> Selected</p>}
                       </button>
                       <div className="text-center text-xs font-bold text-gray-400 py-1">OR</div>
                       <button
-                        onClick={() => voteWouldYouRather(selected.id, 'B')}
-                        className={`w-full p-5 rounded-xl border-2 text-left transition-all ${votedB ? 'border-campus-accent bg-campus-accent/5 ring-2 ring-campus-accent/20' : 'border-gray-200 hover:border-campus-accent/50'}`}
+                        onClick={() => pick('B')}
+                        disabled={hasVoted || isCreator}
+                        className={`w-full p-5 rounded-xl border-2 text-left transition-all ${votedB || pendingWYR === 'B' ? 'border-campus-accent bg-campus-accent/5 ring-2 ring-campus-accent/20' : 'border-gray-200 hover:border-campus-accent/50 disabled:hover:border-gray-200'}`}
                       >
                         <div className="flex items-center justify-between">
                           <p className="font-medium text-sm">{data.optionB}</p>
-                          {hasVoted && <span className="text-lg font-bold text-campus-accent">{percentB}%</span>}
+                          {showResults && <span className="text-lg font-bold text-campus-accent">{percentB}%</span>}
                         </div>
-                        {hasVoted && <div className="mt-3 h-2.5 bg-gray-100 rounded-full overflow-hidden"><div className="h-full bg-campus-accent rounded-full transition-all duration-500" style={{ width: `${percentB}%` }} /></div>}
+                        {showResults && <div className="mt-3 h-2.5 bg-gray-100 rounded-full overflow-hidden"><div className="h-full bg-campus-accent rounded-full transition-all duration-500" style={{ width: `${percentB}%` }} /></div>}
                         {votedB && <p className="text-xs text-campus-accent mt-2 flex items-center gap-1"><Check size={12} /> Your choice</p>}
+                        {!hasVoted && pendingWYR === 'B' && <p className="text-xs text-campus-accent mt-2 flex items-center gap-1"><Check size={12} /> Selected</p>}
                       </button>
                     </div>
+                    {!hasVoted && !isCreator && (
+                      <button onClick={submit} disabled={!pendingWYR || submitting} className="btn-primary w-full mt-5 disabled:opacity-50">{submitting ? 'Submitting…' : 'Submit Answer'}</button>
+                    )}
                   </div>
                 );
               })()}
@@ -224,17 +244,18 @@ function GamesContent() {
                     <div className="space-y-3">
                       {data.statements.map((s, i) => {
                         const isMyGuess = myGuess?.guessIndex === i;
+                        const isPending = !myGuess && pendingGuess === i;
                         const isCorrectLie = data.revealed && s.isLie;
                         const isWrongGuess = data.revealed && isMyGuess && !s.isLie;
                         return (
                           <button
                             key={i}
-                            onClick={() => !myGuess && !isCreator && guessTwoTruths(selected.id, i)}
+                            onClick={() => { if (!myGuess && !isCreator) setPendingGuess(i); }}
                             disabled={!!myGuess || isCreator}
                             className={`w-full p-4 rounded-xl border-2 text-left transition-all ${
                               isCorrectLie ? 'border-red-400 bg-red-50' :
                               isWrongGuess ? 'border-orange-300 bg-orange-50' :
-                              isMyGuess ? 'border-campus-accent bg-campus-accent/5' :
+                              isMyGuess || isPending ? 'border-campus-accent bg-campus-accent/5' :
                               'border-gray-200 hover:border-campus-primary/50 disabled:hover:border-gray-200'
                             }`}
                           >
@@ -242,6 +263,7 @@ function GamesContent() {
                               <span className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-xs font-bold flex-shrink-0">{i + 1}</span>
                               <p className="text-sm font-medium flex-1">{s.text}</p>
                               {isMyGuess && !data.revealed && <span className="text-xs text-campus-accent font-medium">Your guess</span>}
+                              {isPending && <span className="text-xs text-campus-accent font-medium">Selected</span>}
                             </div>
                             {data.revealed && (
                               <p className={`text-xs font-medium mt-2 ml-11 ${s.isLie ? 'text-red-500' : 'text-green-500'}`}>
@@ -252,11 +274,18 @@ function GamesContent() {
                         );
                       })}
                     </div>
+                    {!isCreator && !myGuess && !data.revealed && (
+                      <button
+                        onClick={async () => { if (pendingGuess === null) return; setSubmitting(true); await guessTwoTruths(selected.id, pendingGuess); setPendingGuess(null); setSubmitting(false); toast('Answer submitted'); }}
+                        disabled={pendingGuess === null || submitting}
+                        className="btn-primary w-full mt-4 disabled:opacity-50"
+                      >{submitting ? 'Submitting…' : 'Submit Answer'}</button>
+                    )}
+                    {!isCreator && myGuess && !data.revealed && (
+                      <p className="text-xs text-gray-400 text-center mt-4">Answer submitted — waiting for {creator?.name || 'the creator'} to reveal</p>
+                    )}
                     {isCreator && !data.revealed && (
                       <button onClick={() => revealTwoTruths(selected.id)} className="btn-primary w-full mt-4">Reveal Answer</button>
-                    )}
-                    {!isCreator && !myGuess && !data.revealed && (
-                      <p className="text-xs text-gray-400 text-center mt-4">Tap the statement you think is the lie</p>
                     )}
                   </div>
                 );
@@ -272,40 +301,65 @@ function GamesContent() {
                       <h2 className="font-bold text-lg mt-2">{selected.title}</h2>
                       <p className="text-xs text-gray-500">{selected.participants.length} players</p>
                     </div>
-                    <div className="space-y-5">
-                      {data.statements.map((s, i) => {
-                        const totalResponses = s.iHave.length + s.iHaveNot.length;
-                        const havePercent = totalResponses > 0 ? Math.round((s.iHave.length / totalResponses) * 100) : 0;
-                        const userHas = s.iHave.includes(currentUser.id);
-                        const userHasNot = s.iHaveNot.includes(currentUser.id);
-                        const hasResponded = userHas || userHasNot;
-
-                        return (
-                          <div key={i} className="p-4 bg-gray-50 rounded-xl">
-                            <p className="font-medium text-sm mb-3">Never have I ever... <span className="text-gray-700">{s.text.toLowerCase()}</span></p>
-                            <div className="flex gap-2 mb-2">
-                              <button
-                                onClick={() => voteNeverHaveIEver(selected.id, i, 'iHave')}
-                                className={`flex-1 py-2.5 rounded-lg text-xs font-medium transition-all ${userHas ? 'bg-campus-accent text-white shadow-md' : 'bg-white border border-gray-200 text-gray-600 hover:border-campus-accent'}`}
-                              >
-                                I have 😳 ({s.iHave.length})
-                              </button>
-                              <button
-                                onClick={() => voteNeverHaveIEver(selected.id, i, 'iHaveNot')}
-                                className={`flex-1 py-2.5 rounded-lg text-xs font-medium transition-all ${userHasNot ? 'bg-campus-primary text-white shadow-md' : 'bg-white border border-gray-200 text-gray-600 hover:border-campus-primary'}`}
-                              >
-                                Never 😇 ({s.iHaveNot.length})
-                              </button>
-                            </div>
-                            {hasResponded && totalResponses > 0 && (
-                              <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
-                                <div className="h-full bg-campus-accent rounded-full transition-all duration-500" style={{ width: `${havePercent}%` }} />
-                              </div>
-                            )}
+                    {(() => {
+                      const isCreator = selected.creatorId === currentUser.id;
+                      // Statements the viewer has already answered on the server.
+                      const answeredCount = data.statements.filter(s => s.iHave.includes(currentUser.id) || s.iHaveNot.includes(currentUser.id)).length;
+                      // Statements with a pending (unsubmitted) selection this session.
+                      const pendingCount = Object.keys(pendingNHIE).length;
+                      const submitNHIE = async () => {
+                        setSubmitting(true);
+                        for (const [idx, resp] of Object.entries(pendingNHIE)) { await voteNeverHaveIEver(selected.id, Number(idx), resp); }
+                        setPendingNHIE({}); setSubmitting(false); toast('Answers submitted');
+                      };
+                      return (
+                        <>
+                          <div className="space-y-5">
+                            {data.statements.map((s, i) => {
+                              const totalResponses = s.iHave.length + s.iHaveNot.length;
+                              const havePercent = totalResponses > 0 ? Math.round((s.iHave.length / totalResponses) * 100) : 0;
+                              const userHas = s.iHave.includes(currentUser.id);
+                              const userHasNot = s.iHaveNot.includes(currentUser.id);
+                              const hasResponded = userHas || userHasNot;
+                              const pendingResp = pendingNHIE[i];
+                              const pick = (r: 'iHave' | 'iHaveNot') => { if (!isCreator) setPendingNHIE(prev => ({ ...prev, [i]: r })); };
+                              return (
+                                <div key={i} className="p-4 bg-gray-50 rounded-xl">
+                                  <p className="font-medium text-sm mb-3">Never have I ever... <span className="text-gray-700">{s.text.toLowerCase()}</span></p>
+                                  <div className="flex gap-2 mb-2">
+                                    <button
+                                      onClick={() => pick('iHave')}
+                                      disabled={isCreator}
+                                      className={`flex-1 py-2.5 rounded-lg text-xs font-medium transition-all ${userHas || pendingResp === 'iHave' ? 'bg-campus-accent text-white shadow-md' : 'bg-white border border-gray-200 text-gray-600 hover:border-campus-accent disabled:hover:border-gray-200'}`}
+                                    >
+                                      I have 😳 ({s.iHave.length})
+                                    </button>
+                                    <button
+                                      onClick={() => pick('iHaveNot')}
+                                      disabled={isCreator}
+                                      className={`flex-1 py-2.5 rounded-lg text-xs font-medium transition-all ${userHasNot || pendingResp === 'iHaveNot' ? 'bg-campus-primary text-white shadow-md' : 'bg-white border border-gray-200 text-gray-600 hover:border-campus-primary disabled:hover:border-gray-200'}`}
+                                    >
+                                      Never 😇 ({s.iHaveNot.length})
+                                    </button>
+                                  </div>
+                                  {(hasResponded || isCreator) && totalResponses > 0 && (
+                                    <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+                                      <div className="h-full bg-campus-accent rounded-full transition-all duration-500" style={{ width: `${havePercent}%` }} />
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
                           </div>
-                        );
-                      })}
-                    </div>
+                          {!isCreator && pendingCount > 0 && (
+                            <button onClick={submitNHIE} disabled={submitting} className="btn-primary w-full mt-5 disabled:opacity-50">{submitting ? 'Submitting…' : `Submit ${pendingCount} answer${pendingCount > 1 ? 's' : ''}`}</button>
+                          )}
+                          {!isCreator && pendingCount === 0 && answeredCount === 0 && (
+                            <p className="text-xs text-gray-400 text-center mt-4">Pick your answers, then tap Submit</p>
+                          )}
+                        </>
+                      );
+                    })()}
                   </div>
                 );
               })()}

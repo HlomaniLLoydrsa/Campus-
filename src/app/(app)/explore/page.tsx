@@ -8,7 +8,7 @@ import PostCard from '@/components/posts/PostCard';
 import ConnectActions from '@/components/connections/ConnectActions';
 import Avatar from '@/components/Avatar';
 import { useApp } from '@/context/AppContext';
-import { Heart, Eye, Sparkles, Users, Zap, X, TrendingUp, Calendar, HelpCircle, Megaphone, Gamepad2, Flame, Compass } from 'lucide-react';
+import { Heart, Eye, Sparkles, Users, Zap, X, TrendingUp, Calendar, HelpCircle, Megaphone, Gamepad2, Flame, Compass, Search } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { formatTimeAgo } from '@/lib/utils';
@@ -66,13 +66,14 @@ export default function ExplorePage() {
   const [selectedCard, setSelectedCard] = useState<string | null>(null);
   const [playMode, setPlayMode] = useState<'friend' | 'anyone' | null>(null);
   const [chosenFriend, setChosenFriend] = useState<{ id: string; name: string } | null>(null);
+  const [friendSearch, setFriendSearch] = useState('');
   const [creating, setCreating] = useState(false);
   const [tab, setTab] = useState('discover');
 
   const isGameType = (id: string): id is 'would-you-rather' | 'never-have-i-ever' | 'two-truths-one-lie' =>
     id === 'would-you-rather' || id === 'never-have-i-ever' || id === 'two-truths-one-lie';
 
-  const closeGameModal = () => { setSelectedCard(null); setPlayMode(null); setChosenFriend(null); setCreating(false); };
+  const closeGameModal = () => { setSelectedCard(null); setPlayMode(null); setChosenFriend(null); setCreating(false); setFriendSearch(''); };
 
   // Create a public game (play with anyone) then open the shared list.
   const createAnyoneGame = async (title: string, data: any) => {
@@ -338,24 +339,44 @@ export default function ExplorePage() {
                 )}
 
                 {/* Step 2 (friend): pick a friend */}
-                {playMode === 'friend' && !chosenFriend && (
-                  <div className="space-y-3">
-                    <p className="text-sm text-gray-600 mb-1">Send to which friend?</p>
-                    {myFriends.length > 0 ? (
-                      <div className="max-h-60 overflow-y-auto space-y-2">
-                        {myFriends.map(friend => friend && (
-                          <button key={friend.id} onClick={() => setChosenFriend({ id: friend.id, name: friend.name })} className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 transition-colors border border-gray-100 text-left">
-                            <Avatar src={friend.avatar} name={friend.name} size={40} />
-                            <div className="flex-1 min-w-0"><p className="font-medium text-sm truncate">{friend.name}</p><p className="text-xs text-gray-500 truncate">@{friend.username}</p></div>
-                          </button>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="text-center py-4 text-gray-400"><p className="text-sm">No friends yet</p><Link href="/connections" className="text-xs text-campus-primary font-medium">Find people to connect with</Link></div>
-                    )}
-                    <button onClick={() => setPlayMode(null)} className="btn-secondary w-full text-sm">Back</button>
-                  </div>
-                )}
+                {playMode === 'friend' && !chosenFriend && (() => {
+                  const q = friendSearch.trim().toLowerCase();
+                  const matches = myFriends.filter((f): f is NonNullable<typeof f> => !!f && (!q || f.name.toLowerCase().includes(q) || (f.username || '').toLowerCase().includes(q)));
+                  return (
+                    <div className="space-y-3">
+                      <p className="text-sm text-gray-600 mb-1">Send to which friend?</p>
+                      {myFriends.length > 0 ? (
+                        <>
+                          <div className="relative">
+                            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                            <input
+                              type="text"
+                              value={friendSearch}
+                              onChange={(e) => setFriendSearch(e.target.value)}
+                              placeholder="Search friends by name or @username"
+                              className="w-full pl-9 pr-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-campus-primary/20"
+                            />
+                          </div>
+                          {matches.length > 0 ? (
+                            <div className="max-h-60 overflow-y-auto space-y-2">
+                              {matches.map(friend => (
+                                <button key={friend.id} onClick={() => setChosenFriend({ id: friend.id, name: friend.name })} className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 transition-colors border border-gray-100 text-left">
+                                  <Avatar src={friend.avatar} name={friend.name} size={40} />
+                                  <div className="flex-1 min-w-0"><p className="font-medium text-sm truncate">{friend.name}</p><p className="text-xs text-gray-500 truncate">@{friend.username}</p></div>
+                                </button>
+                              ))}
+                            </div>
+                          ) : (
+                            <div className="text-center py-4 text-gray-400"><p className="text-sm">No friends found</p></div>
+                          )}
+                        </>
+                      ) : (
+                        <div className="text-center py-4 text-gray-400"><p className="text-sm">No friends yet</p><Link href="/connections" className="text-xs text-campus-primary font-medium">Find people to connect with</Link></div>
+                      )}
+                      <button onClick={() => setPlayMode(null)} className="btn-secondary w-full text-sm">Back</button>
+                    </div>
+                  );
+                })()}
 
                 {/* Step 3 (friend): build the game, then send to their inbox */}
                 {playMode === 'friend' && chosenFriend && (
