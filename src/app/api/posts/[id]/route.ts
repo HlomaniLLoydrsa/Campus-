@@ -1,8 +1,15 @@
 import { NextResponse } from 'next/server';
 import { getDb } from '@/lib/db';
+import crypto from 'crypto';
 import { requireUserId } from '@/lib/auth';
 
-// PATCH /api/posts/:id — like, save, comment, removeImage (as the authenticated user)
+// Actor's display name for notification copy.
+async function actorName(db: any, userId: string): Promise<string> {
+  const u = await db.prepare('SELECT name FROM users WHERE id = ?').get(userId) as any;
+  return u?.name || 'Someone';
+}
+
+// PATCH /api/posts/:id — like, save, comment, share, removeImage (as the authenticated user)
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const auth = await requireUserId();
@@ -16,12 +23,26 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   const post = await db.prepare('SELECT * FROM posts WHERE id = ?').get(id) as any;
   if (!post) return NextResponse.json({ error: 'Post not found' }, { status: 404 });
 
+  // The post owner (works for anonymous posts too, matched via ownerId).
+  const ownerId = post.ownerId || post.authorId;
+
   if (action === 'like') {
     const likedBy = JSON.parse(post.likedBy || '[]');
     const isLiked = likedBy.includes(userId);
     const newLikedBy = isLiked ? likedBy.filter((u: string) => u !== userId) : [...likedBy, userId];
     await db.prepare('UPDATE posts SET likedBy = ?, likes = ? WHERE id = ?').run(JSON.stringify(newLikedBy), newLikedBy.length, id);
-    // Likes do NOT generate notifications (kept quiet like mainstream social apps)
+    // Notify the owner on a NEW like (never self, never anonymous authors we can't resolve).
+    // Deterministic id per (post, liker) so repeated like/unlike/like never spams; removed on unlike.
+    if (ownerId && ownerId !== userId) {
+      const nid = `nlk_${id}_${userId}`;
+      if (isLiked) {
+        await db.prepare('DELETE FROM notifications WHERE id = ?').run(nid);
+      } else {
+        await db.prepare('INSERT OR IGNORE INTO notifications (id, userId, type, fromUserId, message, relatedId, relatedType, read) VALUES (?, ?, ?, ?, ?, ?, ?, 0)').run(
+          nid, ownerId, 'like', userId, `${await actorName(db, userId)} liked your post`, id, 'post'
+        );
+      }
+    }
     return NextResponse.json({ likes: newLikedBy.length, likedBy: newLikedBy });
   }
 
@@ -36,6 +57,12 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   if (action === 'share') {
     const shares = (post.shares || 0) + 1;
     await db.prepare('UPDATE posts SET shares = ? WHERE id = ?').run(shares, id);
+    if (ownerId && ownerId !== userId) {
+      const nid = `n_${crypto.randomUUID().slice(0, 8)}`;
+      await db.prepare('INSERT INTO notifications (id, userId, type, fromUserId, message, relatedId, relatedType, read) VALUES (?, ?, ?, ?, ?, ?, ?, 0)').run(
+        nid, ownerId, 'share', userId, `${await actorName(db, userId)} shared your post`, id, 'post'
+      );
+    }
     return NextResponse.json({ shares });
   }
 
@@ -55,7 +82,13 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   if (action === 'comment' && content) {
     const commentId = `c_${Date.now()}`;
     await db.prepare('INSERT INTO comments (id, postId, authorId, content, likes, likedBy, createdAt) VALUES (?, ?, ?, ?, 0, ?, ?)').run(commentId, id, userId, content, '[]', new Date().toISOString());
-    // Comments do NOT generate notifications to reduce noise
+    // Notify the post owner of a new comment (never self). relatedId=postId so the click opens the post.
+    if (ownerId && ownerId !== userId) {
+      const nid = `n_${crypto.randomUUID().slice(0, 8)}`;
+      await db.prepare('INSERT INTO notifications (id, userId, type, fromUserId, message, relatedId, relatedType, read) VALUES (?, ?, ?, ?, ?, ?, ?, 0)').run(
+        nid, ownerId, 'comment', userId, `${await actorName(db, userId)} commented on your post`, id, 'post'
+      );
+    }
     return NextResponse.json({ id: commentId, postId: id, authorId: userId, content, likes: 0, likedBy: [], createdAt: new Date().toISOString() });
   }
 
@@ -78,6 +111,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
     return NextResponse.json({ error: 'Not authorized' }, { status: 403 });
   }
   await db.prepare('DELETE FROM comments WHERE postId = ?').run(id);
+  await db.prepare("DELETE FROM notifications WHERE relatedType = 'post' AND relatedId = ?").run(id);
   await db.prepare('DELETE FROM posts WHERE id = ?').run(id);
   return NextResponse.json({ success: true });
 }

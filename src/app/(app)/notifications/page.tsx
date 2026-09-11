@@ -21,11 +21,11 @@ export default function NotificationsPage() {
 
   const getNotificationIcon = (type: string) => {
     const icons: Record<string, string> = {
-      'like': '❤️', 'comment': '💬', 'reply': '↩️', 'friend-request': '🤝', 'relationship-request': '❤️',
+      'like': '❤️', 'comment': '💬', 'reply': '↩️', 'share': '🔁', 'friend-request': '🤝', 'relationship-request': '❤️',
       'friend-accepted': '✅', 'relationship-accepted': '💕', 'request-cancelled': '❌',
       'new-message': '✉️', 'group-message': '👥', 'event-invitation': '🎉', 'event-join-request': '📩',
       'event-approved': '🎫', 'event-message': '📢', 'secret-admirer': '👀', 'wingman-activity': '🏹',
-      'game-invitation': '🎮', 'shoutout': '🎤', 'question-answer': '❓', 'mention': '📢', 'new-connection': '🤝',
+      'game-invitation': '🎮', 'game-answer': '🎮', 'shoutout': '🎤', 'question-answer': '❓', 'mention': '📢', 'new-connection': '🤝',
     };
     return icons[type] || '🔔';
   };

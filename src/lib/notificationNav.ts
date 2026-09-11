@@ -38,6 +38,10 @@ export function getNotificationHref(
       return relatedId ? `/planner/study/${relatedId}` : '/planner/calendar';
     case 'planner':
       return '/planner';
+    case 'wingman':
+      return relatedId ? `/wingman?suggestion=${relatedId}` : '/wingman';
+    case 'game':
+      return relatedId ? `/games?open=${relatedId}` : '/games';
   }
 
   // Fall back on the notification type. Only the connection types below reach /connections.
@@ -69,13 +73,17 @@ export function getNotificationHref(
     case 'event-approved':
       return '/';
 
-    // Games → Explore
+    // Games → the game (relatedId when available), else Games list
     case 'game-invitation':
-      return '/explore';
+    case 'game-answer':
+      return relatedId ? `/games?open=${relatedId}` : '/games';
 
-    // Badges, wingman, secret-admirer, and anything else → stay on the notifications page.
-    case 'badge':
+    // Wingman → the Wingman suggestion page
     case 'wingman-activity':
+      return relatedId ? `/wingman?suggestion=${relatedId}` : '/wingman';
+
+    // Badges, secret-admirer, and anything else → stay on the notifications page.
+    case 'badge':
     case 'secret-admirer':
     default:
       return '/notifications';

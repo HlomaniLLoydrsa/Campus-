@@ -30,11 +30,14 @@ export type NotificationType =
   | 'like'
   | 'comment'
   | 'reply'
+  | 'share'
   | 'shoutout'
   | 'question-answer'
   | 'wingman-activity'
   | 'secret-admirer'
   | 'game-invitation'
+  | 'game-answer'
+  | 'planner-reminder'
   | 'mention'
   | 'new-connection'
   | 'badge';
@@ -179,7 +182,7 @@ export interface Notification {
   groupCount?: number;
   requestType?: RequestType;
   relatedId?: string;
-  relatedType?: 'request' | 'connection' | 'conversation' | 'post' | 'game' | 'resource' | 'lostfound' | 'service' | 'planner' | 'planner-task' | 'planner-session';
+  relatedType?: 'request' | 'connection' | 'conversation' | 'post' | 'game' | 'resource' | 'lostfound' | 'service' | 'planner' | 'planner-task' | 'planner-session' | 'wingman';
 }
 
 export interface Badge {
