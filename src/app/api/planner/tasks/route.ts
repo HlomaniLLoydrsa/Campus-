@@ -34,13 +34,13 @@ export async function POST(request: Request) {
   const db = await getDb();
   const id = `ptk_${crypto.randomUUID().slice(0, 8)}`;
   await db.prepare(
-    `INSERT INTO planner_tasks (id, userId, moduleId, title, type, description, dueDate, dueTime, priority, status, progress, estimatedHours, topicIds, notes, pinned, createdAt)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    `INSERT INTO planner_tasks (id, userId, moduleId, title, type, description, dueDate, dueTime, priority, status, progress, estimatedHours, topicIds, notes, pinned, resourceId, createdAt)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   ).run(
     id, userId, b.moduleId || null, b.title.trim(), b.type || 'assignment', (b.description || '').trim(),
     (b.dueDate || '').trim(), (b.dueTime || '').trim(), b.priority || 'medium', b.status || 'not-started',
     Number(b.progress) || 0, Number(b.estimatedHours) || 0, JSON.stringify(Array.isArray(b.topicIds) ? b.topicIds : []),
-    (b.notes || '').trim(), b.pinned ? 1 : 0, new Date().toISOString()
+    (b.notes || '').trim(), b.pinned ? 1 : 0, b.resourceId || null, new Date().toISOString()
   );
   const created = await db.prepare('SELECT * FROM planner_tasks WHERE id = ?').get(id) as any;
   return NextResponse.json({ ...created, topicIds: JSON.parse(created.topicIds || '[]') }, { status: 201 });

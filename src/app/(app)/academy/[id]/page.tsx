@@ -8,7 +8,7 @@ import BottomNav from '@/components/layout/BottomNav';
 import TopBar from '@/components/layout/TopBar';
 import { useApp } from '@/context/AppContext';
 import { AcademyResource, typeMeta, formatFileSize } from '@/lib/academy';
-import { ArrowLeft, Download, Star, Bookmark, Flag, Trash2, BookOpen } from 'lucide-react';
+import { ArrowLeft, Download, Star, Bookmark, Flag, Trash2, BookOpen, CalendarPlus, X, Check } from 'lucide-react';
 
 export default function AcademyResourcePage() {
   const params = useParams();
@@ -18,6 +18,7 @@ export default function AcademyResourcePage() {
   const [r, setR] = useState<AcademyResource | null>(null);
   const [loading, setLoading] = useState(true);
   const [reported, setReported] = useState(false);
+  const [showPlanner, setShowPlanner] = useState(false);
 
   const load = async () => {
     try {
@@ -122,6 +123,8 @@ export default function AcademyResourcePage() {
             </div>
             {reported && <p className="text-xs text-green-600 mt-2 text-center">Reported. Thanks for keeping VYBE safe.</p>}
 
+            <button onClick={() => setShowPlanner(true)} className="btn-secondary w-full mt-2 flex items-center justify-center gap-2"><CalendarPlus size={16} /> Add to Planner</button>
+
             {/* Rating */}
             {!isOwner && (
               <div className="mt-5 pt-4 border-t border-gray-100 text-center">
@@ -138,8 +141,78 @@ export default function AcademyResourcePage() {
             )}
           </div>
         </div>
+
+        {showPlanner && <AddToPlannerModal resource={r} onClose={() => setShowPlanner(false)} />}
       </main>
       <BottomNav />
+    </div>
+  );
+}
+
+function AddToPlannerModal({ resource, onClose }: { resource: AcademyResource; onClose: () => void }) {
+  const router = useRouter();
+  const [as, setAs] = useState<'task' | 'session'>('task');
+  const [dueDate, setDueDate] = useState('');
+  const [dueTime, setDueTime] = useState('');
+  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+  const [startTime, setStartTime] = useState('16:00');
+  const [durationMin, setDurationMin] = useState('60');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const [done, setDone] = useState(false);
+
+  const submit = async () => {
+    setBusy(true); setError('');
+    const body: any = { resourceId: resource.id, as };
+    if (as === 'task') { body.dueDate = dueDate; body.dueTime = dueTime; }
+    else { body.date = date; body.startTime = startTime; body.durationMin = Number(durationMin) || 60; }
+    try {
+      const res = await fetch('/api/planner/from-resource', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      const d = await res.json();
+      if (!res.ok) { setError(d.error || 'Could not add to planner.'); setBusy(false); return; }
+      setDone(true);
+      setTimeout(() => { router.push(d.kind === 'session' ? `/planner/study/${d.id}` : `/planner/tasks/${d.id}`); }, 700);
+    } catch { setError('Something went wrong.'); setBusy(false); }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/40 flex items-end sm:items-center justify-center p-0 sm:p-4" onClick={onClose}>
+      <div className="bg-white w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl p-5 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="font-bold flex items-center gap-2"><CalendarPlus size={18} className="text-campus-primary" /> Add to Planner</h3>
+          <button onClick={onClose} className="p-1 text-gray-400 hover:text-gray-600"><X size={18} /></button>
+        </div>
+        <p className="text-xs text-gray-500 mb-4 truncate">Linking &ldquo;{resource.title}&rdquo; — the resource stays in Academy, your planner just points to it.</p>
+
+        {done ? (
+          <div className="py-8 text-center"><Check size={40} className="mx-auto text-green-500 mb-2" /><p className="font-semibold text-gray-700">Added to your planner</p></div>
+        ) : (
+          <>
+            {error && <div className="p-2.5 mb-3 bg-red-50 border border-red-100 rounded-xl text-sm text-red-700">{error}</div>}
+            <div className="flex gap-2 mb-4">
+              <button onClick={() => setAs('task')} className={`flex-1 py-2 rounded-xl text-sm font-medium border ${as === 'task' ? 'bg-campus-primary text-white border-campus-primary' : 'bg-white text-gray-600 border-gray-200'}`}>As a task</button>
+              <button onClick={() => setAs('session')} className={`flex-1 py-2 rounded-xl text-sm font-medium border ${as === 'session' ? 'bg-campus-primary text-white border-campus-primary' : 'bg-white text-gray-600 border-gray-200'}`}>As a study session</button>
+            </div>
+
+            {as === 'task' ? (
+              <div className="grid grid-cols-2 gap-2">
+                <div><label className="text-xs text-gray-500 block mb-1">Due date (optional)</label><input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} className="input-field" /></div>
+                <div><label className="text-xs text-gray-500 block mb-1">Due time</label><input type="time" value={dueTime} onChange={(e) => setDueTime(e.target.value)} className="input-field" /></div>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <div className="grid grid-cols-2 gap-2">
+                  <div><label className="text-xs text-gray-500 block mb-1">Date</label><input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="input-field" /></div>
+                  <div><label className="text-xs text-gray-500 block mb-1">Start</label><input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} className="input-field" /></div>
+                </div>
+                <div><label className="text-xs text-gray-500 block mb-1">Duration (min)</label><input type="number" value={durationMin} onChange={(e) => setDurationMin(e.target.value)} className="input-field" /></div>
+              </div>
+            )}
+
+            <button onClick={submit} disabled={busy} className="btn-primary w-full mt-4 disabled:opacity-50">{busy ? 'Adding…' : 'Add to Planner'}</button>
+          </>
+        )}
+      </div>
     </div>
   );
 }

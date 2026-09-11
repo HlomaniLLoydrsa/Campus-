@@ -555,6 +555,8 @@ async function initializeDb() {
   // Games can be public (play with anyone) or private (sent to one friend's inbox).
   await ensureColumn(c, 'games', 'visibility', 'TEXT');
   await ensureColumn(c, 'games', 'targetUserId', 'TEXT');
+  // Planner tasks can reference an Academy resource (a link, never a content copy).
+  await ensureColumn(c, 'planner_tasks', 'resourceId', 'TEXT');
 }
 
 async function ensureColumn(c: Client, table: string, column: string, type: string) {

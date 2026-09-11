@@ -7,7 +7,7 @@ import BottomNav from '@/components/layout/BottomNav';
 import TopBar from '@/components/layout/TopBar';
 import { useApp } from '@/context/AppContext';
 import { taskTypeMeta, priorityMeta, countdown } from '@/lib/planner';
-import { CalendarDays, Clock, AlertTriangle, Target, CheckCircle2, BookOpen, ArrowRight, Plus, Layers, ListTodo, CalendarRange, History } from 'lucide-react';
+import { CalendarDays, Clock, AlertTriangle, Target, CheckCircle2, BookOpen, ArrowRight, Plus, Layers, ListTodo, CalendarRange, History, Bell } from 'lucide-react';
 
 export default function PlannerDashboardPage() {
   const { currentUser } = useApp();
@@ -17,6 +17,8 @@ export default function PlannerDashboardPage() {
 
   useEffect(() => {
     fetch('/api/planner/dashboard').then(r => r.ok ? r.json() : null).then(d => { setData(d); setLoading(false); }).catch(() => setLoading(false));
+    // Generate any due reminder notifications on open (idempotent, respects prefs).
+    fetch('/api/planner/reminders/sync', { method: 'POST' }).catch(() => {});
   }, []);
 
   const greeting = (() => {
@@ -36,9 +38,12 @@ export default function PlannerDashboardPage() {
         <TopBar />
         <div className="max-w-2xl mx-auto px-4 py-6">
           {/* Header */}
-          <div className="mb-5">
-            <h1 className="text-2xl font-bold">{greeting}, {firstName} 👋</h1>
-            <p className="text-sm text-gray-500 mt-1">Here&apos;s what needs your attention.</p>
+          <div className="mb-5 flex items-start justify-between gap-2">
+            <div>
+              <h1 className="text-2xl font-bold">{greeting}, {firstName} 👋</h1>
+              <p className="text-sm text-gray-500 mt-1">Here&apos;s what needs your attention.</p>
+            </div>
+            <Link href="/planner/settings" className="p-2 rounded-lg hover:bg-gray-100 text-gray-400" title="Reminder settings"><Bell size={18} /></Link>
           </div>
 
           {/* Quick nav */}

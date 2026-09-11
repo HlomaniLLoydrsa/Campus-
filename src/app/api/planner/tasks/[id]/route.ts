@@ -20,7 +20,9 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   const sessions = await db.prepare('SELECT * FROM planner_sessions WHERE taskId = ? ORDER BY date ASC').all(id) as any[];
   let mod: any = null;
   if (t.moduleId) mod = await db.prepare('SELECT id, code, name, color FROM planner_modules WHERE id = ?').get(t.moduleId);
-  return NextResponse.json({ ...t, topicIds: JSON.parse(t.topicIds || '[]'), sessions, module: mod });
+  let resource: any = null;
+  if (t.resourceId) resource = await db.prepare('SELECT id, title, type, module, fileType FROM academy_resources WHERE id = ?').get(t.resourceId);
+  return NextResponse.json({ ...t, topicIds: JSON.parse(t.topicIds || '[]'), sessions, module: mod, resource });
 }
 
 // PATCH /api/planner/tasks/:id — edit / complete / reopen / progress / pin.

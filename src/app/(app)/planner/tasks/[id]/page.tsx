@@ -84,6 +84,13 @@ export default function PlannerTaskDetailPage() {
             </div>
 
             {t.estimatedHours > 0 && <p className="text-xs text-gray-400 mt-3">Estimated workload: {t.estimatedHours}h</p>}
+            {t.resource && (
+              <Link href={`/academy/${t.resource.id}`} className="mt-3 flex items-center gap-2 p-2.5 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-700">
+                <BookOpen size={15} />
+                <span className="text-sm font-medium truncate flex-1">{t.resource.title}</span>
+                <span className="text-[10px] text-blue-500 uppercase">{t.resource.type}</span>
+              </Link>
+            )}
             {t.description && <p className="text-sm text-gray-700 mt-3 whitespace-pre-wrap">{t.description}</p>}
             {t.notes && <div className="mt-3 p-3 bg-gray-50 rounded-xl text-sm text-gray-600 whitespace-pre-wrap">{t.notes}</div>}
 
