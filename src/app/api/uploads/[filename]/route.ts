@@ -28,11 +28,20 @@ export async function GET(request: Request, { params }: { params: Promise<{ file
 
   const ext = (filename.split('.').pop() || '').toLowerCase();
   const contentType = result.contentType || CONTENT_TYPES[ext] || 'application/octet-stream';
-  return new NextResponse(result.data as ArrayBuffer, {
-    status: 200,
-    headers: {
-      'Content-Type': contentType,
-      'Cache-Control': 'public, max-age=31536000, immutable',
-    },
-  });
+
+  const headers: Record<string, string> = {
+    'Content-Type': contentType,
+    'Cache-Control': 'public, max-age=31536000, immutable',
+    // Never let the browser MIME-sniff an upload into something executable.
+    'X-Content-Type-Options': 'nosniff',
+  };
+
+  // Defense in depth for any legacy SVGs (new uploads reject SVG): serve them
+  // sandboxed and as a download so embedded scripts can never run in our origin.
+  if (ext === 'svg' || contentType === 'image/svg+xml') {
+    headers['Content-Security-Policy'] = "default-src 'none'; style-src 'unsafe-inline'; sandbox";
+    headers['Content-Disposition'] = `attachment; filename="${filename}"`;
+  }
+
+  return new NextResponse(result.data as ArrayBuffer, { status: 200, headers });
 }

@@ -14,7 +14,6 @@ const MIME_EXT: Record<string, string> = {
   'image/heic': 'heic',
   'image/heif': 'heif',
   'image/bmp': 'bmp',
-  'image/svg+xml': 'svg',
   'image/tiff': 'tiff',
 };
 
@@ -31,13 +30,16 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'No file provided' }, { status: 400 });
     }
 
-    // Accept ANY image — by MIME type, or (when the browser sends a generic/blank
+    // Accept ANY raster image — by MIME type, or (when the browser sends a generic/blank
     // MIME, common with some phone galleries) by a recognized image extension.
-    const IMAGE_EXTS = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'avif', 'heic', 'heif', 'bmp', 'svg', 'tiff', 'tif', 'jfif'];
+    // NOTE: SVG is intentionally rejected. SVGs can carry <script> and, served inline,
+    // become a stored-XSS vector. Everything user-facing needs only raster images anyway.
+    const IMAGE_EXTS = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'avif', 'heic', 'heif', 'bmp', 'tiff', 'tif', 'jfif'];
     const nameExt = (file.name.split('.').pop() || '').toLowerCase();
-    const looksLikeImage = file.type.startsWith('image/') || IMAGE_EXTS.includes(nameExt);
+    const isSvg = file.type === 'image/svg+xml' || nameExt === 'svg';
+    const looksLikeImage = !isSvg && (file.type.startsWith('image/') || IMAGE_EXTS.includes(nameExt));
     if (!looksLikeImage) {
-      return NextResponse.json({ error: 'Please upload an image file.' }, { status: 400 });
+      return NextResponse.json({ error: isSvg ? 'SVG images are not supported. Please upload a JPG, PNG, or similar.' : 'Please upload an image file.' }, { status: 400 });
     }
 
     // Validate file size (max 15MB — phone photos can be large)

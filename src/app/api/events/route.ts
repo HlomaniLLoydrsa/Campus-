@@ -17,7 +17,13 @@ export async function POST(request: Request) {
   const post = await db.prepare('SELECT * FROM posts WHERE id = ?').get(postId) as any;
   if (!post || !post.eventData) return NextResponse.json({ error: 'Event not found' }, { status: 404 });
 
-  const eventData = JSON.parse(post.eventData);
+  let eventData: any;
+  try { eventData = JSON.parse(post.eventData); } catch { return NextResponse.json({ error: 'Event data is corrupted' }, { status: 422 }); }
+  // Defensive defaults so a partially-formed event never throws a 500.
+  if (!Array.isArray(eventData.participants)) eventData.participants = [];
+  if (!Array.isArray(eventData.pendingRequests)) eventData.pendingRequests = [];
+  if (typeof eventData.currentParticipants !== 'number') eventData.currentParticipants = eventData.participants.length;
+  if (typeof eventData.maxParticipants !== 'number') eventData.maxParticipants = Infinity;
 
   if (action === 'join') {
     if (eventData.participants.includes(userId)) return NextResponse.json({ error: 'Already joined' }, { status: 409 });

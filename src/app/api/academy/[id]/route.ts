@@ -42,13 +42,15 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   if (action === 'download') {
     const downloads = (r.downloads || 0) + 1;
     await db.prepare('UPDATE academy_resources SET downloads = ? WHERE id = ?').run(downloads, id);
-    // Notify the uploader at simple download milestones.
+    // Notify the uploader at simple download milestones. Downloads are public (no auth),
+    // so use a deterministic notification id per milestone (INSERT OR IGNORE) — this
+    // makes the milestone fire at most once and prevents notification spam from repeated hits.
     if ([1, 10, 50, 100].includes(downloads) && r.uploaderId) {
-      const nid = `n_${crypto.randomUUID().slice(0, 8)}`;
+      const nid = `ndl_${id}_${downloads}`;
       const msg = downloads === 1
         ? `Your resource "${r.title}" got its first download 🎉`
         : `Your resource "${r.title}" reached ${downloads} downloads 🎉`;
-      await db.prepare('INSERT INTO notifications (id, userId, type, message, relatedId, relatedType, read) VALUES (?, ?, ?, ?, ?, ?, 0)').run(nid, r.uploaderId, 'badge', msg, id, 'resource');
+      await db.prepare('INSERT OR IGNORE INTO notifications (id, userId, type, message, relatedId, relatedType, read) VALUES (?, ?, ?, ?, ?, ?, 0)').run(nid, r.uploaderId, 'badge', msg, id, 'resource');
     }
     return NextResponse.json({ downloads });
   }

@@ -19,7 +19,14 @@ const SESSION_COOKIE = 'vybe_session';
 const LEGACY_SALT = 'campus_salt';
 
 function getSecret(): string {
-  return process.env.AUTH_SECRET || 'dev-only-insecure-secret-change-me';
+  const secret = process.env.AUTH_SECRET;
+  if (secret) return secret;
+  // In production a missing secret would make session cookies forgeable (anyone
+  // could sign an arbitrary user id and impersonate any account). Fail fast.
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('AUTH_SECRET must be set in production. Set it in your environment before deploying.');
+  }
+  return 'dev-only-insecure-secret-change-me';
 }
 
 // ── Password hashing ──────────────────────────────────────────────
