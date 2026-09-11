@@ -57,6 +57,7 @@ interface AppContextType {
   viewStory: (storyId: string) => void;
   commentOnStory: (storyId: string, comment: string) => Promise<boolean>;
   sharePost: (postId: string) => void;
+  editPost: (postId: string, content: string, eventData?: any) => Promise<boolean>;
   removePostImage: (postId: string, imageUrl: string) => void;
   reportContent: (targetType: string, targetId: string, reason: string) => void;
   deletePost: (postId: string) => void;
@@ -515,6 +516,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
     fetch(`/api/posts/${postId}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'share', userId: currentUser.id }) }).catch(() => {});
   }, [currentUser.id]);
 
+  const editPost = useCallback(async (postId: string, content: string, eventData?: any): Promise<boolean> => {
+    try {
+      const body: any = { action: 'edit', content };
+      if (eventData !== undefined) body.eventData = eventData;
+      const res = await fetch(`/api/posts/${postId}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      if (!res.ok) return false;
+      const d = await res.json();
+      setPosts(prev => prev.map(p => p.id === postId ? { ...p, content: d.content ?? content, editedAt: d.editedAt, ...(eventData ? { eventData: { ...(p.eventData as any), ...eventData } } : {}) } : p));
+      return true;
+    } catch { return false; }
+  }, []);
+
   const removePostImage = useCallback((postId: string, imageUrl: string) => {
     setPosts(prev => prev.map(p => p.id === postId ? { ...p, images: (p.images || []).filter(img => img !== imageUrl) } : p));
     fetch(`/api/posts/${postId}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'removeImage', userId: currentUser.id, imageUrl }) }).catch(() => {});
@@ -582,7 +595,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       wingmanSuggestions, sendWingmanSuggestion, respondToWingman,
       respondToISawYou, sendISawYou, joinEvent, leaveEvent, approveEventJoin, rejectEventJoin,
       stories, createStory, viewStory, commentOnStory,
-      sharePost, removePostImage, reportContent, deletePost, blockUser,
+      sharePost, editPost, removePostImage, reportContent, deletePost, blockUser,
       badges, profileStats,
       users, getUserById, refreshData,
     }}>

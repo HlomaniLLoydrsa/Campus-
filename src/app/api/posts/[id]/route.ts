@@ -66,6 +66,31 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     return NextResponse.json({ shares });
   }
 
+  if (action === 'edit') {
+    // Only the real owner may edit — works for anonymous posts too (matched via ownerId).
+    if (!ownerId || ownerId !== userId) {
+      return NextResponse.json({ error: 'Not authorized' }, { status: 403 });
+    }
+    const newContent = typeof body.content === 'string' ? body.content.trim() : post.content;
+    const hasImages = JSON.parse(post.images || '[]').length > 0;
+    const hasEvent = !!post.eventData;
+    // Content may be empty only if the post carries images or event data.
+    if (!newContent && !hasImages && !hasEvent && !body.eventData) {
+      return NextResponse.json({ error: 'Post cannot be empty' }, { status: 400 });
+    }
+    const editedAt = new Date().toISOString();
+    if (body.eventData !== undefined) {
+      // Event edit — merge the provided fields into existing eventData, preserving participants.
+      let existing: any = {};
+      try { existing = post.eventData ? JSON.parse(post.eventData) : {}; } catch { existing = {}; }
+      const merged = { ...existing, ...body.eventData, participants: existing.participants || [], pendingRequests: existing.pendingRequests || [], currentParticipants: existing.currentParticipants ?? (existing.participants?.length || 0) };
+      await db.prepare('UPDATE posts SET content = ?, eventData = ?, editedAt = ? WHERE id = ?').run(newContent, JSON.stringify(merged), editedAt, id);
+    } else {
+      await db.prepare('UPDATE posts SET content = ?, editedAt = ? WHERE id = ?').run(newContent, editedAt, id);
+    }
+    return NextResponse.json({ success: true, content: newContent, editedAt });
+  }
+
   if (action === 'removeImage') {
     // The real owner can remove an image, even from an anonymous post
     const owner = post.ownerId || post.authorId;

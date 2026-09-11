@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { Heart, MessageCircle, Share2, Bookmark, MoreHorizontal, Flag, Send, Trash2, X } from 'lucide-react';
+import { Heart, MessageCircle, Share2, Bookmark, MoreHorizontal, Flag, Send, Trash2, X, Edit2 } from 'lucide-react';
 import { Post } from '@/types';
 import { useApp } from '@/context/AppContext';
 import { useFeedback } from '@/context/FeedbackContext';
@@ -14,12 +14,15 @@ interface Props {
 }
 
 export default function PostCard({ post }: Props) {
-  const { currentUser, likePost, savePost, addComment, getUserById, sharePost, removePostImage, reportContent, deletePost, connections, getOrCreateDirectConversation, sendMessage } = useApp();
+  const { currentUser, likePost, savePost, addComment, getUserById, sharePost, editPost, removePostImage, reportContent, deletePost, connections, getOrCreateDirectConversation, sendMessage } = useApp();
   const { confirm, toast } = useFeedback();
   const [showComments, setShowComments] = useState(false);
   const [commentText, setCommentText] = useState('');
   const [replyTo, setReplyTo] = useState<string | null>(null);
   const [replyText, setReplyText] = useState('');
+  const [editing, setEditing] = useState(false);
+  const [editText, setEditText] = useState(post.content);
+  const [savingEdit, setSavingEdit] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
   const [reported, setReported] = useState(false);
   const [showShare, setShowShare] = useState(false);
@@ -83,6 +86,16 @@ export default function PostCard({ post }: Props) {
     if (ok) { deletePost(post.id); toast('Post deleted'); }
   };
 
+  const startEdit = () => { setShowMenu(false); setEditText(post.content); setEditing(true); };
+  const handleSaveEdit = async () => {
+    const trimmed = editText.trim();
+    if (!trimmed && (!post.images || post.images.length === 0) && !post.eventData) { toast('Post cannot be empty', 'error'); return; }
+    setSavingEdit(true);
+    const ok = await editPost(post.id, trimmed);
+    setSavingEdit(false);
+    if (ok) { setEditing(false); toast('Post updated'); } else { toast('Could not update post', 'error'); }
+  };
+
   return (
     <div className="card p-4 animate-fade-in">
       {/* Post type badge */}
@@ -114,7 +127,7 @@ export default function PostCard({ post }: Props) {
                 {author?.name}
               </Link>
             )}
-            <p className="text-xs text-gray-400">{formatTimeAgo(post.createdAt)}</p>
+            <p className="text-xs text-gray-400">{formatTimeAgo(post.createdAt)}{post.editedAt ? ' · Edited' : ''}</p>
           </div>
         </div>
         <div className="relative">
@@ -129,9 +142,14 @@ export default function PostCard({ post }: Props) {
               <div className="fixed inset-0 z-10" onClick={() => setShowMenu(false)} />
               <div className="absolute right-0 top-full mt-1 bg-white border border-gray-100 rounded-xl shadow-lg py-1 z-20 w-44">
                 {isOwnPost && (
-                  <button onClick={handleDelete} className="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50">
-                    <Trash2 size={14} /> Delete post
-                  </button>
+                  <>
+                    <button onClick={startEdit} className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50">
+                      <Edit2 size={14} /> Edit post
+                    </button>
+                    <button onClick={handleDelete} className="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50">
+                      <Trash2 size={14} /> Delete post
+                    </button>
+                  </>
                 )}
                 <button onClick={handleReport} className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50">
                   <Flag size={14} /> {reported ? 'Reported ✓' : 'Report'}
@@ -143,7 +161,23 @@ export default function PostCard({ post }: Props) {
       </div>
 
       {/* Content */}
-      <p className="text-gray-800 text-sm leading-relaxed mb-3 whitespace-pre-wrap">{post.content}</p>
+      {editing ? (
+        <div className="mb-3">
+          <textarea
+            value={editText}
+            onChange={(e) => setEditText(e.target.value)}
+            rows={3}
+            autoFocus
+            className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-campus-primary/20 resize-none"
+          />
+          <div className="flex gap-2 mt-2">
+            <button onClick={handleSaveEdit} disabled={savingEdit} className="btn-primary text-xs disabled:opacity-50">{savingEdit ? 'Saving…' : 'Save'}</button>
+            <button onClick={() => { setEditing(false); setEditText(post.content); }} className="btn-secondary text-xs">Cancel</button>
+          </div>
+        </div>
+      ) : (
+        post.content && <p className="text-gray-800 text-sm leading-relaxed mb-3 whitespace-pre-wrap">{post.content}</p>
+      )}
 
       {/* Images — Facebook-style mosaic */}
       {post.images && post.images.length > 0 && post.images[0] && (

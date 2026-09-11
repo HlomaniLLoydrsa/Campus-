@@ -93,6 +93,7 @@ export interface Post {
   reports: number;
   createdAt: string;
   updatedAt?: string;
+  editedAt?: string | null;
   eventData?: EventData;
   taggedUserId?: string;
   answers?: Answer[];

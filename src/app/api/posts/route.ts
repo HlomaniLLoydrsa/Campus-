@@ -19,6 +19,7 @@ export async function GET() {
     ...p,
     isAnonymous: !!p.isAnonymous,
     ownerId: p.ownerId || p.authorId || null,
+    editedAt: p.editedAt || null,
     images: JSON.parse(p.images || '[]'),
     likedBy: JSON.parse(p.likedBy || '[]'),
     savedBy: JSON.parse(p.savedBy || '[]'),
