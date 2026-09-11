@@ -7,7 +7,7 @@ import BottomNav from '@/components/layout/BottomNav';
 import TopBar from '@/components/layout/TopBar';
 import { useApp } from '@/context/AppContext';
 import { taskTypeMeta, priorityMeta, countdown } from '@/lib/planner';
-import { CalendarDays, Clock, AlertTriangle, Target, CheckCircle2, BookOpen, ArrowRight, Plus, Layers, ListTodo, CalendarRange } from 'lucide-react';
+import { CalendarDays, Clock, AlertTriangle, Target, CheckCircle2, BookOpen, ArrowRight, Plus, Layers, ListTodo, CalendarRange, History } from 'lucide-react';
 
 export default function PlannerDashboardPage() {
   const { currentUser } = useApp();
@@ -75,6 +75,18 @@ export default function PlannerDashboardPage() {
                 <OverviewCard icon={CheckCircle2} label="Completed" value={data.counts.completed} tint="text-green-600 bg-green-50" />
                 <OverviewCard icon={ListTodo} label="Open tasks" value={data.counts.openTasks} tint="text-campus-primary bg-campus-primary/10" />
               </div>
+
+              {/* MISSED SESSIONS — gentle catch-up nudge */}
+              {data.missedSessions > 0 && (
+                <Link href="/planner/study/missed" className="card p-3 mb-5 flex items-center gap-3 bg-amber-50 border-amber-100 hover:bg-amber-100/60">
+                  <History size={18} className="text-amber-600 shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-amber-800">{data.missedSessions} study session{data.missedSessions === 1 ? '' : 's'} to catch up on</p>
+                    <p className="text-[11px] text-amber-600">Reschedule the ones you still want — no pressure.</p>
+                  </div>
+                  <span className="text-xs font-medium text-amber-700">Review</span>
+                </Link>
+              )}
 
               {/* NEXT UP */}
               {data.nextUp && (

@@ -32,6 +32,10 @@ export async function GET() {
   // Today's sessions
   const todaySessions = await db.prepare("SELECT * FROM planner_sessions WHERE userId = ? AND date = ? ORDER BY startTime ASC").all(userId, todayStr) as any[];
 
+  // Missed sessions: planned but their date has already passed.
+  const missedRow = await db.prepare("SELECT COUNT(*) as c FROM planner_sessions WHERE userId = ? AND status = 'planned' AND date != '' AND date < ?").get(userId, todayStr) as any;
+  const missedSessions = missedRow?.c || 0;
+
   // Workload this week (next 7 days): count tasks due + planned session hours.
   const weekEnd = new Date(); weekEnd.setDate(weekEnd.getDate() + 7);
   const weekEndStr = weekEnd.toISOString().slice(0, 10);
@@ -58,6 +62,7 @@ export async function GET() {
     },
     nextUp: nextUp ? decorate(nextUp) : null,
     todaySessions,
+    missedSessions,
     upcomingDeadlines: upcoming.slice(0, 10).map(decorate),
     upcomingExams: upcomingExams.slice(0, 5).map(decorate),
     week: { taskCount: weekTasks.length, sessionCount: weekSessions.length, hours: weekHours, overloadedDay },
