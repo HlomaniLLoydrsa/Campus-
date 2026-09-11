@@ -101,11 +101,13 @@ export interface Post {
 
 export interface Comment {
   id: string;
+  postId?: string;
   authorId: string;
   author?: User;
   content: string;
   likes: number;
   likedBy: string[];
+  parentId?: string | null;
   createdAt: string;
   replies?: Comment[];
 }

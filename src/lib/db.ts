@@ -557,6 +557,10 @@ async function initializeDb() {
   await ensureColumn(c, 'games', 'targetUserId', 'TEXT');
   // Planner tasks can reference an Academy resource (a link, never a content copy).
   await ensureColumn(c, 'planner_tasks', 'resourceId', 'TEXT');
+  // Comments can be replies to another comment (threaded).
+  await ensureColumn(c, 'comments', 'parentId', 'TEXT');
+  // Posts can be edited — track an edit timestamp so we can show an "Edited" indicator.
+  await ensureColumn(c, 'posts', 'editedAt', 'TEXT');
 }
 
 async function ensureColumn(c: Client, table: string, column: string, type: string) {

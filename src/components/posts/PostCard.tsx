@@ -18,6 +18,8 @@ export default function PostCard({ post }: Props) {
   const { confirm, toast } = useFeedback();
   const [showComments, setShowComments] = useState(false);
   const [commentText, setCommentText] = useState('');
+  const [replyTo, setReplyTo] = useState<string | null>(null);
+  const [replyText, setReplyText] = useState('');
   const [showMenu, setShowMenu] = useState(false);
   const [reported, setReported] = useState(false);
   const [showShare, setShowShare] = useState(false);
@@ -39,6 +41,19 @@ export default function PostCard({ post }: Props) {
       setCommentText('');
     }
   };
+
+  const handleReply = (parentId: string) => {
+    if (replyText.trim()) {
+      addComment(post.id, replyText.trim(), parentId);
+      setReplyText('');
+      setReplyTo(null);
+    }
+  };
+
+  // Split comments into top-level and replies keyed by their parent.
+  const topLevelComments = post.comments.filter(c => !c.parentId);
+  const repliesByParent: Record<string, typeof post.comments> = {};
+  post.comments.forEach(c => { if (c.parentId) { (repliesByParent[c.parentId] ||= []).push(c); } });
 
   const handleShare = () => {
     setShowShare(true);
@@ -195,15 +210,58 @@ export default function PostCard({ post }: Props) {
       {/* Comments section */}
       {showComments && (
         <div className="mt-3 pt-3 border-t border-gray-50 space-y-3 animate-slide-down">
-          {post.comments.map(comment => {
+          {topLevelComments.map(comment => {
             const commentAuthor = getUserById(comment.authorId);
+            const replies = repliesByParent[comment.id] || [];
             return (
-              <div key={comment.id} className="flex gap-2">
-                <Avatar src={commentAuthor?.avatar} name={commentAuthor?.name} size={28} />
-                <div className="flex-1 bg-gray-50 rounded-xl px-3 py-2">
-                  <p className="text-xs font-semibold text-gray-700">{commentAuthor?.name || 'User'}</p>
-                  <p className="text-xs text-gray-600 mt-0.5">{comment.content}</p>
+              <div key={comment.id} className="space-y-2">
+                <div className="flex gap-2">
+                  <Avatar src={commentAuthor?.avatar} name={commentAuthor?.name} size={28} />
+                  <div className="flex-1 min-w-0">
+                    <div className="bg-gray-50 rounded-xl px-3 py-2">
+                      <p className="text-xs font-semibold text-gray-700">{commentAuthor?.name || 'User'}</p>
+                      <p className="text-xs text-gray-600 mt-0.5 break-words">{comment.content}</p>
+                    </div>
+                    <button onClick={() => { setReplyTo(replyTo === comment.id ? null : comment.id); setReplyText(''); }} className="text-[11px] font-medium text-gray-400 hover:text-campus-primary mt-1 ml-1">Reply</button>
+                  </div>
                 </div>
+
+                {/* Replies — indented under the parent */}
+                {replies.length > 0 && (
+                  <div className="ml-8 space-y-2 border-l-2 border-gray-100 pl-3">
+                    {replies.map(reply => {
+                      const rAuthor = getUserById(reply.authorId);
+                      return (
+                        <div key={reply.id} className="flex gap-2">
+                          <Avatar src={rAuthor?.avatar} name={rAuthor?.name} size={24} />
+                          <div className="flex-1 bg-gray-50 rounded-xl px-3 py-2 min-w-0">
+                            <p className="text-[11px] font-semibold text-gray-700">{rAuthor?.name || 'User'}</p>
+                            <p className="text-[11px] text-gray-600 mt-0.5 break-words">{reply.content}</p>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* Inline reply input for this comment */}
+                {replyTo === comment.id && (
+                  <div className="ml-8 flex items-center gap-2">
+                    <Avatar src={currentUser.avatar} name={currentUser.name} size={24} />
+                    <div className="flex-1 relative">
+                      <input
+                        type="text"
+                        value={replyText}
+                        autoFocus
+                        onChange={(e) => setReplyText(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && handleReply(comment.id)}
+                        placeholder={`Reply to ${commentAuthor?.name || 'comment'}…`}
+                        className="w-full pl-3 pr-10 py-1.5 bg-gray-50 border border-gray-200 rounded-xl text-[11px] focus:outline-none focus:ring-2 focus:ring-campus-primary/20"
+                      />
+                      <button onClick={() => handleReply(comment.id)} disabled={!replyText.trim()} className="absolute right-2 top-1/2 -translate-y-1/2 text-campus-primary disabled:opacity-30"><Send size={13} /></button>
+                    </div>
+                  </div>
+                )}
               </div>
             );
           })}

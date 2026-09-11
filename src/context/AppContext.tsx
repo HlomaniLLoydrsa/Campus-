@@ -11,7 +11,7 @@ interface AppContextType {
   addPost: (post: Post) => void;
   likePost: (postId: string) => void;
   savePost: (postId: string) => void;
-  addComment: (postId: string, content: string) => void;
+  addComment: (postId: string, content: string, parentId?: string) => void;
   connections: Record<string, string[]>;
   relationships: Record<string, string | null>;
   connectionRequests: ConnectionRequest[];
@@ -257,10 +257,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
     fetch(`/api/posts/${postId}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'save', userId: currentUser.id }) }).catch(() => {});
   }, [currentUser.id]);
 
-  const addComment = useCallback((postId: string, content: string) => {
-    const c = { id: `c${Date.now()}`, authorId: currentUser.id, content, likes: 0, likedBy: [] as string[], createdAt: new Date().toISOString() };
+  const addComment = useCallback((postId: string, content: string, parentId?: string) => {
+    const c = { id: `c${Date.now()}`, postId, authorId: currentUser.id, content, likes: 0, likedBy: [] as string[], parentId: parentId || null, createdAt: new Date().toISOString() };
     setPosts(prev => prev.map(p => p.id === postId ? { ...p, comments: [...p.comments, c] } : p));
-    fetch(`/api/posts/${postId}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'comment', userId: currentUser.id, content }) }).catch(() => {});
+    fetch(`/api/posts/${postId}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'comment', userId: currentUser.id, content, parentId: parentId || null }) })
+      .then(r => r.ok ? r.json() : null)
+      .then(saved => { if (saved?.id) setPosts(prev => prev.map(p => p.id === postId ? { ...p, comments: p.comments.map(x => x.id === c.id ? { ...x, id: saved.id } : x) } : p)); })
+      .catch(() => {});
   }, [currentUser.id]);
 
   const isConnected = useCallback((targetId: string) => (connections[currentUser.id] || []).includes(targetId) || relationships[currentUser.id] === targetId, [connections, relationships, currentUser.id]);

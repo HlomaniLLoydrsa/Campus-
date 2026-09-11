@@ -81,15 +81,39 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
   if (action === 'comment' && content) {
     const commentId = `c_${Date.now()}`;
-    await db.prepare('INSERT INTO comments (id, postId, authorId, content, likes, likedBy, createdAt) VALUES (?, ?, ?, ?, 0, ?, ?)').run(commentId, id, userId, content, '[]', new Date().toISOString());
-    // Notify the post owner of a new comment (never self). relatedId=postId so the click opens the post.
-    if (ownerId && ownerId !== userId) {
+    // A reply references a parent comment on the same post (threaded). Validate the parent exists.
+    let parentId: string | null = null;
+    let parentAuthorId: string | null = null;
+    if (body.parentId) {
+      const parent = await db.prepare('SELECT id, authorId, postId FROM comments WHERE id = ?').get(body.parentId) as any;
+      if (parent && parent.postId === id) { parentId = parent.id; parentAuthorId = parent.authorId; }
+    }
+    await db.prepare('INSERT INTO comments (id, postId, authorId, content, likes, likedBy, parentId, createdAt) VALUES (?, ?, ?, ?, 0, ?, ?, ?)').run(commentId, id, userId, content, '[]', parentId, new Date().toISOString());
+
+    const name = await actorName(db, userId);
+    if (parentId) {
+      // Reply → notify the parent comment's author (unless it's you). relatedId=postId opens the post.
+      if (parentAuthorId && parentAuthorId !== userId) {
+        const nid = `n_${crypto.randomUUID().slice(0, 8)}`;
+        await db.prepare('INSERT INTO notifications (id, userId, type, fromUserId, message, relatedId, relatedType, read) VALUES (?, ?, ?, ?, ?, ?, ?, 0)').run(
+          nid, parentAuthorId, 'reply', userId, `${name} replied to your comment`, id, 'post'
+        );
+      }
+      // Also let the post owner know there's new activity (unless owner is you or the parent author already notified).
+      if (ownerId && ownerId !== userId && ownerId !== parentAuthorId) {
+        const nid = `n_${crypto.randomUUID().slice(0, 8)}`;
+        await db.prepare('INSERT INTO notifications (id, userId, type, fromUserId, message, relatedId, relatedType, read) VALUES (?, ?, ?, ?, ?, ?, ?, 0)').run(
+          nid, ownerId, 'comment', userId, `${name} replied on your post`, id, 'post'
+        );
+      }
+    } else if (ownerId && ownerId !== userId) {
+      // Top-level comment → notify the post owner.
       const nid = `n_${crypto.randomUUID().slice(0, 8)}`;
       await db.prepare('INSERT INTO notifications (id, userId, type, fromUserId, message, relatedId, relatedType, read) VALUES (?, ?, ?, ?, ?, ?, ?, 0)').run(
-        nid, ownerId, 'comment', userId, `${await actorName(db, userId)} commented on your post`, id, 'post'
+        nid, ownerId, 'comment', userId, `${name} commented on your post`, id, 'post'
       );
     }
-    return NextResponse.json({ id: commentId, postId: id, authorId: userId, content, likes: 0, likedBy: [], createdAt: new Date().toISOString() });
+    return NextResponse.json({ id: commentId, postId: id, authorId: userId, content, likes: 0, likedBy: [], parentId, createdAt: new Date().toISOString() });
   }
 
   return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
