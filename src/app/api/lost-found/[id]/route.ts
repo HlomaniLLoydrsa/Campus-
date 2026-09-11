@@ -4,13 +4,10 @@ import crypto from 'crypto';
 import { requireUserId, getSessionUserId } from '@/lib/auth';
 
 function toPublic(r: any, sessionUserId: string | null) {
-  const isOwner = sessionUserId && r.reporterId === sessionUserId;
   return {
     id: r.id, reporterId: r.reporterId, kind: r.kind, itemName: r.itemName,
     category: r.category, description: r.description, photo: r.photo,
     location: r.location, campus: r.campus, dateOn: r.dateOn, status: r.status, createdAt: r.createdAt,
-    hasSecret: !!(r.secretQuestion && r.secretQuestion.trim()),
-    ...(isOwner ? { secretQuestion: r.secretQuestion } : {}),
   };
 }
 
@@ -59,17 +56,20 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     return NextResponse.json({ success: true, status: 'recovered' });
   }
 
-  // Someone claims a found item is theirs — answers the private verification question.
+  // Someone claims the item is theirs — they PROVE ownership by describing proof.
+  // The finder/reporter reviews the proof and accepts or rejects. (Stored in the
+  // existing `answer` column, now used for the claimant's proof text.)
   if (action === 'claim') {
     if (r.reporterId === userId) return NextResponse.json({ error: 'You reported this item' }, { status: 400 });
-    const { answer } = body;
+    const proof = (body.proof ?? body.answer ?? '').toString().trim();
+    if (!proof) return NextResponse.json({ error: 'Please describe proof that the item is yours' }, { status: 400 });
     const claimId = `lfc_${crypto.randomUUID().slice(0, 8)}`;
-    await db.prepare('INSERT INTO lost_found_claims (id, itemId, claimantId, answer, status) VALUES (?, ?, ?, ?, ?)').run(claimId, id, userId, (answer || '').trim(), 'pending');
-    // Notify the reporter that someone claimed it.
+    await db.prepare('INSERT INTO lost_found_claims (id, itemId, claimantId, answer, status) VALUES (?, ?, ?, ?, ?)').run(claimId, id, userId, proof, 'pending');
+    // Notify the reporter (finder) that someone has claimed the item + submitted proof to review.
     const claimant = await db.prepare('SELECT name FROM users WHERE id = ?').get(userId) as any;
     const nid = `n_${crypto.randomUUID().slice(0, 8)}`;
     await db.prepare('INSERT INTO notifications (id, userId, type, fromUserId, message, relatedId, relatedType, read) VALUES (?, ?, ?, ?, ?, ?, ?, 0)').run(
-      nid, r.reporterId, 'mention', userId, `${claimant?.name || 'Someone'} claims your "${r.itemName}" is theirs 🔎`, id, 'lostfound'
+      nid, r.reporterId, 'mention', userId, `${claimant?.name || 'Someone'} submitted proof to claim "${r.itemName}" — review it 🔎`, id, 'lostfound'
     );
     return NextResponse.json({ success: true });
   }
@@ -94,6 +94,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       await db.prepare('INSERT INTO messages (id, conversationId, senderId, content, read, createdAt) VALUES (?, ?, ?, ?, 0, ?)').run(mid, convId, userId, `🔎 Your claim for "${r.itemName}" was approved. Let's arrange the return!`, new Date().toISOString());
       const nid = `n_${crypto.randomUUID().slice(0, 8)}`;
       await db.prepare('INSERT INTO notifications (id, userId, type, fromUserId, message, relatedId, relatedType, read) VALUES (?, ?, ?, ?, ?, ?, ?, 0)').run(nid, claim.claimantId, 'new-message', userId, `Your claim for "${r.itemName}" was approved 🎉`, convId, 'conversation');
+      return NextResponse.json({ success: true, conversationId: convId });
     }
     return NextResponse.json({ success: true });
   }

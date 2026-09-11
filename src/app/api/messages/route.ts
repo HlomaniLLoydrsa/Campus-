@@ -60,15 +60,12 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Not authorized' }, { status: 403 });
   }
 
-  if (conv.type === 'direct') {
-    const otherUser = participants.find((p: string) => p !== senderId);
-    if (otherUser) {
-      const connected = await db.prepare('SELECT * FROM connections WHERE userId = ? AND connectedUserId = ?').get(senderId, otherUser);
-      if (!connected) {
-        return NextResponse.json({ error: 'Must be connected to send messages' }, { status: 403 });
-      }
-    }
-  }
+  // Messaging is allowed to any participant of an EXISTING conversation. Direct conversations
+  // between non-friends are only ever created by explicit server-side flows (accepted Lost & Found
+  // claim, marketplace/service enquiry, wingman match, or a normal connection), so membership in
+  // the conversation is itself the authorization. Creating a NEW direct conversation still requires
+  // a connection (enforced in POST /api/conversations). This lets, e.g., a finder and claimant
+  // arrange a handover even though they aren't friends.
 
   const id = `m_${crypto.randomUUID().slice(0, 8)}`;
   const createdAt = new Date().toISOString();

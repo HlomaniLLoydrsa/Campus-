@@ -102,7 +102,7 @@ export default function LostFoundPage() {
 
 function ReportModal({ defaultKind, onClose, onDone }: { defaultKind: 'lost' | 'found'; onClose: () => void; onDone: () => void }) {
   const { toast } = useFeedback();
-  const [form, setForm] = useState({ kind: defaultKind, itemName: '', category: 'other', description: '', location: '', campus: '', dateOn: '', secretQuestion: '' });
+  const [form, setForm] = useState({ kind: defaultKind, itemName: '', category: 'other', description: '', location: '', campus: '', dateOn: '' });
   const [file, setFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -153,11 +153,7 @@ function ReportModal({ defaultKind, onClose, onDone }: { defaultKind: 'lost' | '
           </div>
           <input value={form.dateOn} onChange={(e) => set('dateOn', e.target.value)} placeholder={`Date ${form.kind}`} className="input-field" />
           {form.kind === 'found' && (
-            <div>
-              <label className="text-xs font-medium text-gray-600 block mb-1">Ownership question (private)</label>
-              <input value={form.secretQuestion} onChange={(e) => set('secretQuestion', e.target.value)} placeholder="e.g. What's the lock-screen wallpaper?" className="input-field" />
-              <p className="text-[11px] text-gray-400 mt-1">Only you see this. Claimants must answer it to prove the item is theirs.</p>
-            </div>
+            <p className="text-[11px] text-gray-500 bg-gray-50 rounded-lg p-2.5">When someone claims this item, they&apos;ll describe proof that it&apos;s theirs. You review the proof and decide whether to accept — then a chat opens so you can arrange the handover.</p>
           )}
           <button onClick={submit} disabled={busy} className="btn-primary w-full disabled:opacity-50">{busy ? 'Posting…' : 'Post Report'}</button>
         </div>

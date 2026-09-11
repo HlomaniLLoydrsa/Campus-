@@ -5,16 +5,13 @@ import { requireUserId, getSessionUserId } from '@/lib/auth';
 
 const CATEGORIES = ['electronics', 'phone', 'laptop', 'wallet', 'keys', 'student-card', 'clothing', 'bag', 'books', 'calculator', 'jewellery', 'other'];
 
-// Public shape — never expose the private ownership question in lists.
+// Public shape for a lost/found item. (The legacy secret-question flow was removed —
+// the claimant now proves ownership by describing proof, reviewed by the finder.)
 function toPublic(r: any, sessionUserId: string | null) {
-  const isOwner = sessionUserId && r.reporterId === sessionUserId;
   return {
     id: r.id, reporterId: r.reporterId, kind: r.kind, itemName: r.itemName,
     category: r.category, description: r.description, photo: r.photo,
     location: r.location, campus: r.campus, dateOn: r.dateOn, status: r.status, createdAt: r.createdAt,
-    hasSecret: !!(r.secretQuestion && r.secretQuestion.trim()),
-    // Owner also sees their own verification question.
-    ...(isOwner ? { secretQuestion: r.secretQuestion } : {}),
   };
 }
 
@@ -56,7 +53,7 @@ export async function POST(request: Request) {
   const reporterId = auth;
 
   const body = await request.json();
-  const { kind, itemName, category, description, photo, location, campus, dateOn, secretQuestion } = body;
+  const { kind, itemName, category, description, photo, location, campus, dateOn } = body;
   if (kind !== 'lost' && kind !== 'found') return NextResponse.json({ error: 'kind must be lost or found' }, { status: 400 });
   if (!itemName?.trim()) return NextResponse.json({ error: 'Item name is required' }, { status: 400 });
   const cat = CATEGORIES.includes(category) ? category : 'other';
@@ -64,12 +61,13 @@ export async function POST(request: Request) {
   const db = await getDb();
   const id = `lf_${crypto.randomUUID().slice(0, 8)}`;
   const createdAt = new Date().toISOString();
+  // secretQuestion column kept as '' for legacy compatibility — no longer used.
   await db.prepare(
     `INSERT INTO lost_found (id, reporterId, kind, itemName, category, description, photo, location, campus, dateOn, secretQuestion, status, createdAt)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'open', ?)`
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, '', 'open', ?)`
   ).run(
     id, reporterId, kind, itemName.trim(), cat, (description || '').trim(), photo || null,
-    (location || '').trim(), (campus || '').trim(), (dateOn || '').trim(), (secretQuestion || '').trim(), createdAt
+    (location || '').trim(), (campus || '').trim(), (dateOn || '').trim(), createdAt
   );
 
   // Matching: look for OPEN items of the opposite kind in the same category with

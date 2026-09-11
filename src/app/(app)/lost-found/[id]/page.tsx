@@ -22,7 +22,7 @@ export default function LostFoundDetailPage() {
   const [loading, setLoading] = useState(true);
   const [reported, setReported] = useState(false);
   const [showClaim, setShowClaim] = useState(false);
-  const [claimAnswer, setClaimAnswer] = useState('');
+  const [claimProof, setClaimProof] = useState('');
   const [claimSent, setClaimSent] = useState(false);
 
   const load = async () => {
@@ -44,8 +44,8 @@ export default function LostFoundDetailPage() {
   const isOwner = item.reporterId === currentUser.id;
 
   const submitClaim = async () => {
-    const ok = await patch({ action: 'claim', answer: claimAnswer });
-    if (ok) { setClaimSent(true); setShowClaim(false); }
+    const ok = await patch({ action: 'claim', proof: claimProof });
+    if (ok) { setClaimSent(true); setShowClaim(false); setClaimProof(''); toast('Proof submitted — the finder will review it'); }
   };
 
   return (
@@ -105,8 +105,8 @@ export default function LostFoundDetailPage() {
                         <Link href={`/profile/${c.claimantId}`} className="text-sm font-medium hover:text-campus-primary">{u?.name || 'Someone'}</Link>
                         <span className={`badge-pill text-[10px] ${c.status === 'approved' ? 'bg-green-100 text-green-700' : c.status === 'rejected' ? 'bg-gray-100 text-gray-500' : 'bg-yellow-100 text-yellow-700'}`}>{c.status}</span>
                       </div>
-                      {item.secretQuestion && <p className="text-[11px] text-gray-400 mt-1">Q: {item.secretQuestion}</p>}
-                      <p className="text-sm text-gray-700 mt-1 italic">&quot;{c.answer || '(no answer)'}&quot;</p>
+                      <p className="text-[11px] text-gray-400 mt-1">Proof of ownership:</p>
+                      <p className="text-sm text-gray-700 mt-0.5 italic">&quot;{c.answer || '(no proof provided)'}&quot;</p>
                       {c.status === 'pending' && (
                         <div className="flex gap-2 mt-2">
                           <button onClick={async () => { await patch({ action: 'resolveClaim', claimId: c.id, decision: 'approved' }); load(); }} className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-green-600 text-white">Approve</button>
@@ -144,15 +144,11 @@ export default function LostFoundDetailPage() {
           <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
             <div className="bg-white rounded-2xl w-full max-w-sm p-5 mb-16 lg:mb-0">
               <h3 className="font-bold text-lg mb-2">Prove it&apos;s yours</h3>
-              {item.hasSecret ? (
-                <p className="text-sm text-gray-600 mb-3">The reporter set a private question. Answer it so they can verify.{item.secretQuestion ? ` ${item.secretQuestion}` : ''}</p>
-              ) : (
-                <p className="text-sm text-gray-600 mb-3">Describe an identifying detail only the owner would know.</p>
-              )}
-              <textarea value={claimAnswer} onChange={(e) => setClaimAnswer(e.target.value)} placeholder="Your answer…" rows={3} className="input-field resize-none mb-3" />
+              <p className="text-sm text-gray-600 mb-3">Describe details only the real owner would know — a serial number, a scratch, what&apos;s inside, the lock-screen, etc. The finder reviews your proof and decides.</p>
+              <textarea value={claimProof} onChange={(e) => setClaimProof(e.target.value)} placeholder="e.g. It's a black HP with a cracked top-right corner and a red sticker inside…" rows={3} className="input-field resize-none mb-3" />
               <div className="flex gap-2">
                 <button onClick={() => setShowClaim(false)} className="btn-secondary flex-1 text-sm">Cancel</button>
-                <button onClick={submitClaim} disabled={!claimAnswer.trim()} className="btn-primary flex-1 text-sm disabled:opacity-50">Send Claim</button>
+                <button onClick={submitClaim} disabled={!claimProof.trim()} className="btn-primary flex-1 text-sm disabled:opacity-50">Submit proof</button>
               </div>
             </div>
           </div>

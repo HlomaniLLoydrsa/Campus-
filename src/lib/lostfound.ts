@@ -13,9 +13,6 @@ export interface LostFoundItem {
   dateOn: string;
   status: 'open' | 'recovered';
   createdAt: string;
-  // secretQuestion is included only for the owner (never in public lists).
-  secretQuestion?: string;
-  hasSecret?: boolean;
 }
 
 export interface LostFoundClaim {
