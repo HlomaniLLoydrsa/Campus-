@@ -389,6 +389,61 @@ async function initializeDb() {
     CREATE INDEX IF NOT EXISTS idx_mkt_created ON marketplace_listings(createdAt);
     CREATE INDEX IF NOT EXISTS idx_mkt_price ON marketplace_listings(price);
     CREATE INDEX IF NOT EXISTS idx_mkt_saves_user ON marketplace_saves(userId);
+
+    -- ── VYBE Gigs / Services / Tutors ─────────────────────────────
+    CREATE TABLE IF NOT EXISTS services (
+      id TEXT PRIMARY KEY,
+      providerId TEXT NOT NULL,
+      kind TEXT NOT NULL DEFAULT 'service',       -- 'service' | 'tutor'
+      name TEXT NOT NULL,
+      description TEXT DEFAULT '',
+      category TEXT DEFAULT 'other',
+      rate TEXT DEFAULT '',                        -- free-text rate (e.g. "R150/hr")
+      campus TEXT DEFAULT '',
+      availability TEXT DEFAULT '',
+      subjects TEXT DEFAULT '',                    -- tutor subjects/modules (comma list)
+      experience TEXT DEFAULT '',                  -- tutor experience
+      portfolio TEXT DEFAULT '[]',                 -- image URLs (JSON)
+      createdAt TEXT DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS service_reviews (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      serviceId TEXT NOT NULL,
+      userId TEXT NOT NULL,
+      rating INTEGER NOT NULL,
+      comment TEXT DEFAULT '',
+      createdAt TEXT DEFAULT (datetime('now')),
+      UNIQUE(serviceId, userId)
+    );
+
+    CREATE TABLE IF NOT EXISTS service_saves (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      serviceId TEXT NOT NULL,
+      userId TEXT NOT NULL,
+      createdAt TEXT DEFAULT (datetime('now')),
+      UNIQUE(serviceId, userId)
+    );
+
+    CREATE TABLE IF NOT EXISTS service_requests (
+      id TEXT PRIMARY KEY,
+      serviceId TEXT NOT NULL,
+      requesterId TEXT NOT NULL,
+      providerId TEXT NOT NULL,
+      note TEXT DEFAULT '',
+      status TEXT DEFAULT 'pending',               -- pending|accepted|declined|completed|cancelled
+      createdAt TEXT DEFAULT (datetime('now'))
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_svc_provider ON services(providerId);
+    CREATE INDEX IF NOT EXISTS idx_svc_kind ON services(kind);
+    CREATE INDEX IF NOT EXISTS idx_svc_category ON services(category);
+    CREATE INDEX IF NOT EXISTS idx_svc_campus ON services(campus);
+    CREATE INDEX IF NOT EXISTS idx_svc_created ON services(createdAt);
+    CREATE INDEX IF NOT EXISTS idx_svc_reviews_service ON service_reviews(serviceId);
+    CREATE INDEX IF NOT EXISTS idx_svc_saves_user ON service_saves(userId);
+    CREATE INDEX IF NOT EXISTS idx_svc_req_provider ON service_requests(providerId);
+    CREATE INDEX IF NOT EXISTS idx_svc_req_requester ON service_requests(requesterId);
   `);
 
   // Safe additive migrations for databases created before newer columns existed.

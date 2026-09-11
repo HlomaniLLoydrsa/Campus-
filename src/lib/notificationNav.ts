@@ -30,6 +30,8 @@ export function getNotificationHref(
       return relatedId ? `/academy/${relatedId}` : '/academy';
     case 'lostfound':
       return relatedId ? `/lost-found/${relatedId}` : '/lost-found';
+    case 'service':
+      return relatedId ? `/services/${relatedId}` : '/services';
   }
 
   // Fall back on the notification type. Only the connection types below reach /connections.
