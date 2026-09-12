@@ -263,6 +263,15 @@ async function initializeDb() {
       createdAt TEXT DEFAULT (datetime('now'))
     );
 
+    CREATE TABLE IF NOT EXISTS password_reset_tokens (
+      id TEXT PRIMARY KEY,
+      userId TEXT NOT NULL,
+      tokenHash TEXT NOT NULL,
+      expiresAt TEXT NOT NULL,
+      used INTEGER DEFAULT 0,
+      createdAt TEXT DEFAULT (datetime('now'))
+    );
+
     CREATE TABLE IF NOT EXISTS blocks (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       blockerId TEXT NOT NULL,

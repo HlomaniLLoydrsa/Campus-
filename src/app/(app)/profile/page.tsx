@@ -11,6 +11,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { useFeedback } from '@/context/FeedbackContext';
+import { resizeImage } from '@/lib/image';
 
 export default function ProfilePage() {
   const { currentUser, posts, connections, users, getOrCreateDirectConversation, badges } = useApp();
@@ -108,12 +109,22 @@ function EditProfileModal({ onClose }: { onClose: () => void }) {
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState('');
 
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>, type: 'avatar' | 'cover') => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (file.size > 10 * 1024 * 1024) { setError('Image must be less than 10MB'); return; }
-    // Set the file synchronously so it's guaranteed present when Save runs,
-    // even if the user clicks Save immediately. The preview loads separately.
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>, type: 'avatar' | 'cover') => {
+    const original = e.target.files?.[0];
+    if (!original) return;
+    if (original.size > 20 * 1024 * 1024) { setError('Image must be less than 20MB'); return; }
+    setError('');
+    // Resize/compress on the client BEFORE upload. Full-size phone photos (5-15MB)
+    // were causing intermittent "could not upload" failures; avatars/covers only need
+    // a fraction of that. Avatars are capped tighter than covers.
+    let file = original;
+    try {
+      file = await resizeImage(original, type === 'avatar' ? 512 : 1600, 0.85);
+    } catch {
+      // If resizing fails (e.g. an unusual format), fall back to the original.
+      file = original;
+    }
+    // Set the file so it's present when Save runs.
     if (type === 'avatar') { setAvatarFile(file); setRemoveAvatar(false); }
     else { setCoverFile(file); setRemoveCover(false); }
     const reader = new FileReader();
@@ -122,6 +133,8 @@ function EditProfileModal({ onClose }: { onClose: () => void }) {
       else setCoverPreview(ev.target?.result as string);
     };
     reader.readAsDataURL(file);
+    // Allow re-selecting the same file again after a failed attempt.
+    if (e.target) e.target.value = '';
   };
 
   const handleRemovePhoto = (type: 'avatar' | 'cover') => {
@@ -129,9 +142,18 @@ function EditProfileModal({ onClose }: { onClose: () => void }) {
     else { setCoverFile(null); setCoverPreview(''); setRemoveCover(true); }
   };
 
+  // Upload with a single automatic retry so a transient network/server blip
+  // doesn't force the user to start over. Returns the URL, or null on real failure.
   const uploadFile = async (file: File): Promise<string | null> => {
-    const fd = new FormData(); fd.append('file', file);
-    try { const r = await fetch('/api/upload', { method: 'POST', body: fd, credentials: 'include' }); if (r.ok) { return (await r.json()).url; } } catch {} return null;
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const fd = new FormData(); fd.append('file', file);
+        const r = await fetch('/api/upload', { method: 'POST', body: fd, credentials: 'include' });
+        if (r.ok) { const d = await r.json().catch(() => ({})); if (d.url) return d.url; }
+      } catch { /* network error — fall through to retry */ }
+      if (attempt === 0) await new Promise(res => setTimeout(res, 600));
+    }
+    return null;
   };
 
   const handleSave = async () => {
