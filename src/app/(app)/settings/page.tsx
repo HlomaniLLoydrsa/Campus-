@@ -7,7 +7,7 @@ import TopBar from '@/components/layout/TopBar';
 import { useApp } from '@/context/AppContext';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
-import { Bell, Lock, User, Shield, LogOut, ChevronRight, Edit2 } from 'lucide-react';
+import { Bell, Lock, User, Shield, ShieldCheck, LogOut, ChevronRight, Edit2 } from 'lucide-react';
 import Link from 'next/link';
 
 export default function SettingsPage() {
@@ -50,6 +50,7 @@ export default function SettingsPage() {
               { icon: Bell, label: 'Notifications', desc: 'Configure notification preferences', href: '/notifications' },
               { icon: Lock, label: 'Privacy', desc: 'Control who sees your content', href: '/settings/privacy' },
               { icon: Shield, label: 'Security', desc: 'Password and login settings', href: '/settings/security' },
+              ...(currentUser.isAdmin ? [{ icon: ShieldCheck, label: 'Admin', desc: 'Moderation & management', href: '/admin' }] : []),
             ].map(item => {
               const Inner = (
                 <div className="card p-4 cursor-pointer hover:bg-gray-50 transition-colors">

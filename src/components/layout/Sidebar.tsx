@@ -3,7 +3,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, Compass, Users, MessageCircle, Calendar, User, Heart, Eye, Sparkles, LogOut } from 'lucide-react';
+import { Home, Compass, Users, MessageCircle, Calendar, User, Heart, Eye, Sparkles, LogOut, Shield } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
 import { useAuth } from '@/context/AuthContext';
 import { useFeedback } from '@/context/FeedbackContext';
@@ -43,7 +43,7 @@ export default function Sidebar() {
       </Link>
 
       <nav className="flex-1 space-y-1">
-        {navItems.map(item => {
+        {[...navItems, ...(currentUser.isAdmin ? [{ href: '/admin', icon: Shield, label: 'Admin' }] : [])].map(item => {
           const isActive = pathname === item.href || (item.href !== '/' && pathname.startsWith(item.href));
           const Icon = item.icon;
           return (

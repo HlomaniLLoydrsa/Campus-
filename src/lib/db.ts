@@ -577,6 +577,9 @@ async function initializeDb() {
   await ensureColumn(c, 'users', 'isAdmin', 'INTEGER DEFAULT 0');
   // Per-user privacy preferences, stored as a JSON blob.
   await ensureColumn(c, 'users', 'privacySettings', 'TEXT');
+  // Account moderation status: 'active' (default) or 'suspended'. Suspended users
+  // cannot log in or act. Set/cleared from the admin area.
+  await ensureColumn(c, 'users', 'status', "TEXT DEFAULT 'active'");
 }
 
 async function ensureColumn(c: Client, table: string, column: string, type: string) {

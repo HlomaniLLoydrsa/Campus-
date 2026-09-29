@@ -65,6 +65,7 @@ export interface User {
   privacySettings: PrivacySettings;
   wingmanEnabled: boolean;
   wingmen: string[];
+  isAdmin?: boolean;
 }
 
 export interface PrivacySettings {

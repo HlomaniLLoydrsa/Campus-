@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getDb } from '@/lib/db';
 import crypto from 'crypto';
 import { requireUserId } from '@/lib/auth';
+import { deletePostCascade } from '@/lib/admin';
 
 // Actor's display name for notification copy.
 async function actorName(db: any, userId: string): Promise<string> {
@@ -159,10 +160,6 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
   if (owner && owner !== userId) {
     return NextResponse.json({ error: 'Not authorized' }, { status: 403 });
   }
-  await db.prepare('DELETE FROM comments WHERE postId = ?').run(id);
-  await db.prepare("DELETE FROM notifications WHERE relatedType = 'post' AND relatedId = ?").run(id);
-  // Clean up event RSVPs when an event post is deleted (harmless no-op for non-event posts).
-  await db.prepare('DELETE FROM event_participants WHERE postId = ?').run(id);
-  await db.prepare('DELETE FROM posts WHERE id = ?').run(id);
+  await deletePostCascade(id);
   return NextResponse.json({ success: true });
 }

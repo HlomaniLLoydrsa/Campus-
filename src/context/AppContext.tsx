@@ -109,6 +109,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     interests: authUser.interests || [],
     hobbies: authUser.hobbies || [],
     isOnline: true,
+    isAdmin: !!authUser.isAdmin,
   } : EMPTY_USER;
 
   const [users, setUsers] = useState<User[]>([]);

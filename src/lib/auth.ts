@@ -134,3 +134,17 @@ export async function requireUserId(): Promise<string | NextResponse> {
   }
   return userId;
 }
+
+// ── Admin seeding ─────────────────────────────────────────────────
+// The first admins are granted by email via the ADMIN_EMAILS env var
+// (comma-separated). On login we auto-promote any matching account by
+// setting users.isAdmin = 1. This is the only way to become an admin —
+// there is no self-service API to grant the role.
+export function isAdminEmail(email: string | null | undefined): boolean {
+  if (!email) return false;
+  const list = (process.env.ADMIN_EMAILS || '')
+    .split(',')
+    .map(e => e.trim().toLowerCase())
+    .filter(Boolean);
+  return list.includes(email.trim().toLowerCase());
+}

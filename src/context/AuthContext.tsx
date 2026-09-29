@@ -16,6 +16,7 @@ interface AuthUser {
   interests: string[];
   hobbies: string[];
   isOnline: boolean;
+  isAdmin?: boolean;
 }
 
 interface AuthContextType {
@@ -65,6 +66,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             interests: Array.isArray(parsed.interests) ? parsed.interests : [],
             hobbies: Array.isArray(parsed.hobbies) ? parsed.hobbies : [],
             isOnline: true,
+            isAdmin: !!parsed.isAdmin,
           });
         } else {
           // Corrupt/old data — clear it
@@ -102,6 +104,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         interests: Array.isArray(data.user.interests) ? data.user.interests : [],
         hobbies: Array.isArray(data.user.hobbies) ? data.user.hobbies : [],
         isOnline: true,
+        isAdmin: !!data.user.isAdmin,
       };
       setUser(normalized);
       localStorage.setItem('campus_user', JSON.stringify(normalized));

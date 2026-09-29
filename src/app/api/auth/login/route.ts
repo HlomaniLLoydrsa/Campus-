@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getDb } from '@/lib/db';
-import { verifyPassword, isLegacyHash, hashPassword, setSessionCookie } from '@/lib/auth';
+import { verifyPassword, isLegacyHash, hashPassword, setSessionCookie, isAdminEmail } from '@/lib/auth';
 
 export async function POST(request: Request) {
   const body = await request.json();
@@ -16,9 +16,21 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Invalid email or password' }, { status: 401 });
   }
 
+  // Suspended accounts cannot log in.
+  if (user.status === 'suspended') {
+    return NextResponse.json({ error: 'This account has been suspended. Contact support if you think this is a mistake.' }, { status: 403 });
+  }
+
   // Transparently upgrade old sha256 hashes to scrypt on successful login.
   if (isLegacyHash(user.password || '')) {
     try { await db.prepare('UPDATE users SET password = ? WHERE id = ?').run(hashPassword(password), user.id); } catch { /* non-fatal */ }
+  }
+
+  // Auto-promote seeded admin emails (ADMIN_EMAILS env). This is the only way to
+  // gain the admin role — there's no API to self-promote.
+  let isAdmin = !!user.isAdmin;
+  if (!isAdmin && isAdminEmail(user.email)) {
+    try { await db.prepare('UPDATE users SET isAdmin = 1 WHERE id = ?').run(user.id); isAdmin = true; } catch { /* non-fatal */ }
   }
 
   // Update online status + establish a verified server session
@@ -40,6 +52,7 @@ export async function POST(request: Request) {
       interests: JSON.parse(user.interests || '[]'),
       hobbies: JSON.parse(user.hobbies || '[]'),
       isOnline: true,
+      isAdmin,
     },
   });
 }
