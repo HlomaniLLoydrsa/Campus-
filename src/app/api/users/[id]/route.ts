@@ -4,7 +4,7 @@ import { getSessionUserId } from '@/lib/auth';
 
 // Never expose the password hash. Email is only returned to the account owner.
 const PUBLIC_COLUMNS =
-  'id, name, username, avatar, coverImage, bio, course, faculty, yearOfStudy, interests, hobbies, isOnline, lastSeen, wingmanEnabled, privacySettings, createdAt';
+  'id, name, username, avatar, coverImage, bio, course, faculty, yearOfStudy, age, gender, university, onboarded, interests, hobbies, isOnline, lastSeen, wingmanEnabled, privacySettings, createdAt';
 
 const DEFAULT_PRIVACY = { showProfile: 'everyone', showInterests: 'everyone', allowRequests: 'everyone', allowMessages: 'connections-only', showOnlineStatus: true, showRelationship: false };
 
@@ -22,6 +22,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     hobbies: JSON.parse(user.hobbies || '[]'),
     isOnline: !!user.isOnline,
     wingmanEnabled: !!user.wingmanEnabled,
+    onboarded: !!user.onboarded,
     privacySettings: user.privacySettings ? { ...DEFAULT_PRIVACY, ...safeParse(user.privacySettings) } : DEFAULT_PRIVACY,
   });
 }
@@ -56,16 +57,21 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
   const fields: string[] = [];
   const values: any[] = [];
-  const allowedFields = ['name', 'username', 'avatar', 'coverImage', 'bio', 'course', 'faculty', 'yearOfStudy', 'interests', 'hobbies', 'wingmanEnabled', 'privacySettings'];
+  const allowedFields = ['name', 'username', 'avatar', 'coverImage', 'bio', 'course', 'faculty', 'yearOfStudy', 'age', 'gender', 'university', 'onboarded', 'interests', 'hobbies', 'wingmanEnabled', 'privacySettings'];
 
   for (const field of allowedFields) {
     if (body[field] !== undefined) {
       if (field === 'interests' || field === 'hobbies' || field === 'privacySettings') {
         fields.push(`${field} = ?`);
         values.push(JSON.stringify(body[field]));
-      } else if (field === 'wingmanEnabled') {
+      } else if (field === 'wingmanEnabled' || field === 'onboarded') {
         fields.push(`${field} = ?`);
         values.push(body[field] ? 1 : 0);
+      } else if (field === 'age') {
+        // Store a sane integer age, or null to clear it.
+        const n = parseInt(body.age, 10);
+        fields.push('age = ?');
+        values.push(Number.isFinite(n) && n > 0 && n < 120 ? n : null);
       } else {
         fields.push(`${field} = ?`);
         values.push(body[field]);
@@ -87,6 +93,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     hobbies: JSON.parse(updated.hobbies || '[]'),
     isOnline: !!updated.isOnline,
     wingmanEnabled: !!updated.wingmanEnabled,
+    onboarded: !!updated.onboarded,
     privacySettings: updated.privacySettings ? { ...DEFAULT_PRIVACY, ...safeParse(updated.privacySettings) } : DEFAULT_PRIVACY,
   });
 }

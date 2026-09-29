@@ -580,6 +580,12 @@ async function initializeDb() {
   // Account moderation status: 'active' (default) or 'suspended'. Suspended users
   // cannot log in or act. Set/cleared from the admin area.
   await ensureColumn(c, 'users', 'status', "TEXT DEFAULT 'active'");
+  // Onboarding quiz fields collected right after signup, shown on the profile.
+  await ensureColumn(c, 'users', 'age', 'INTEGER');
+  await ensureColumn(c, 'users', 'gender', 'TEXT');
+  await ensureColumn(c, 'users', 'university', 'TEXT');
+  // Whether the user has completed the post-signup onboarding quiz (shows once).
+  await ensureColumn(c, 'users', 'onboarded', 'INTEGER DEFAULT 0');
 }
 
 async function ensureColumn(c: Client, table: string, column: string, type: string) {

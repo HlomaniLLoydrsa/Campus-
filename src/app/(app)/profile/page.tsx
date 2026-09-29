@@ -6,7 +6,7 @@ import BottomNav from '@/components/layout/BottomNav';
 import TopBar from '@/components/layout/TopBar';
 import PostCard from '@/components/posts/PostCard';
 import { useApp } from '@/context/AppContext';
-import { Edit2, FileText, Bookmark, Award, MapPin, BookOpen, Calendar, Users, MessageCircle, Camera, X, User, Trash2 } from 'lucide-react';
+import { Edit2, FileText, Bookmark, Award, MapPin, BookOpen, Calendar, Users, MessageCircle, Camera, X, User, Trash2, GraduationCap } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
@@ -57,7 +57,16 @@ export default function ProfilePage() {
             </div>
             {!hasProfile && <div className="mt-4 p-4 bg-campus-primary/5 border border-campus-primary/10 rounded-xl text-center"><p className="text-sm font-medium text-campus-primary">Complete your profile to get started!</p><button onClick={() => setShowEditModal(true)} className="btn-primary text-sm mt-3">Set Up Profile</button></div>}
             {currentUser.bio && <p className="text-sm text-gray-700 mt-4">{currentUser.bio}</p>}
-            {(currentUser.course || currentUser.faculty) && <div className="flex flex-wrap gap-4 mt-3 text-sm text-gray-500">{currentUser.course && <span className="flex items-center gap-1"><BookOpen size={14} /> {currentUser.course}</span>}{currentUser.faculty && <span className="flex items-center gap-1"><MapPin size={14} /> {currentUser.faculty}</span>}{currentUser.yearOfStudy > 0 && <span className="flex items-center gap-1"><Calendar size={14} /> Year {currentUser.yearOfStudy}</span>}</div>}
+            {(currentUser.university || currentUser.course || currentUser.faculty || currentUser.age || currentUser.gender) && (
+              <div className="flex flex-wrap gap-x-4 gap-y-2 mt-3 text-sm text-gray-500">
+                {currentUser.university && <span className="flex items-center gap-1"><GraduationCap size={14} /> {currentUser.university}</span>}
+                {currentUser.course && <span className="flex items-center gap-1"><BookOpen size={14} /> {currentUser.course}</span>}
+                {currentUser.faculty && <span className="flex items-center gap-1"><MapPin size={14} /> {currentUser.faculty}</span>}
+                {currentUser.yearOfStudy > 0 && <span className="flex items-center gap-1"><Calendar size={14} /> Year {currentUser.yearOfStudy}</span>}
+                {currentUser.age ? <span className="flex items-center gap-1"><User size={14} /> {currentUser.age} yrs</span> : null}
+                {currentUser.gender && <span className="flex items-center gap-1">{currentUser.gender}</span>}
+              </div>
+            )}
             <div className="flex gap-6 mt-4 py-4 border-y border-gray-100"><div className="text-center"><p className="font-bold text-lg">{friendCount}</p><p className="text-xs text-gray-500">Friends</p></div><div className="text-center"><p className="font-bold text-lg">{myPosts.length}</p><p className="text-xs text-gray-500">Posts</p></div><div className="text-center"><p className="font-bold text-lg">{earnedBadges.length}</p><p className="text-xs text-gray-500">Badges</p></div></div>
             {currentUser.interests.length > 0 && <div className="mt-4"><h3 className="text-sm font-semibold text-gray-700 mb-2">Interests</h3><div className="flex flex-wrap gap-2">{currentUser.interests.map(i => <span key={i} className="badge-pill bg-campus-primary/10 text-campus-primary">{i}</span>)}</div></div>}
             <div className="flex gap-1 mt-6 border-b border-gray-100 overflow-x-auto scrollbar-hide">
@@ -98,7 +107,7 @@ function EditProfileModal({ onClose }: { onClose: () => void }) {
   const { logout } = useAuth();
   const { confirm, toast } = useFeedback();
   const router = useRouter();
-  const [form, setForm] = useState({ name: currentUser.name || '', username: currentUser.username || '', bio: currentUser.bio || '', course: currentUser.course || '', faculty: currentUser.faculty || '', yearOfStudy: currentUser.yearOfStudy || 1, interests: currentUser.interests.join(', '), hobbies: currentUser.hobbies.join(', ') });
+  const [form, setForm] = useState({ name: currentUser.name || '', username: currentUser.username || '', bio: currentUser.bio || '', course: currentUser.course || '', faculty: currentUser.faculty || '', yearOfStudy: currentUser.yearOfStudy || 1, age: currentUser.age ? String(currentUser.age) : '', gender: currentUser.gender || '', university: currentUser.university || '', interests: currentUser.interests.join(', '), hobbies: currentUser.hobbies.join(', ') });
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = useState(currentUser.avatar || '');
   const [removeAvatar, setRemoveAvatar] = useState(false);
@@ -176,7 +185,7 @@ function EditProfileModal({ onClose }: { onClose: () => void }) {
       coverUrl = u;
     }
     try {
-      const res = await fetch(`/api/users/${currentUser.id}`, { method: 'PATCH', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: form.name.trim(), username: form.username.trim(), bio: form.bio.trim(), avatar: avatarUrl, coverImage: coverUrl, course: form.course.trim(), faculty: form.faculty.trim(), yearOfStudy: Number(form.yearOfStudy) || 1, interests: form.interests.split(',').map(s => s.trim()).filter(Boolean), hobbies: form.hobbies.split(',').map(s => s.trim()).filter(Boolean) }) });
+      const res = await fetch(`/api/users/${currentUser.id}`, { method: 'PATCH', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: form.name.trim(), username: form.username.trim(), bio: form.bio.trim(), avatar: avatarUrl, coverImage: coverUrl, course: form.course.trim(), faculty: form.faculty.trim(), yearOfStudy: Number(form.yearOfStudy) || 1, age: form.age ? parseInt(form.age, 10) : null, gender: form.gender.trim(), university: form.university.trim(), interests: form.interests.split(',').map(s => s.trim()).filter(Boolean), hobbies: form.hobbies.split(',').map(s => s.trim()).filter(Boolean) }) });
       if (!res.ok) {
         const d = await res.json().catch(() => ({}));
         // A 401/403 means the session cookie is missing or stale (e.g. logged in before sessions existed).
@@ -189,7 +198,7 @@ function EditProfileModal({ onClose }: { onClose: () => void }) {
         return;
       }
       const stored = localStorage.getItem('campus_user');
-      if (stored) { const u = JSON.parse(stored); Object.assign(u, { name: form.name.trim(), username: form.username.trim(), avatar: avatarUrl, coverImage: coverUrl, bio: form.bio.trim(), course: form.course.trim(), faculty: form.faculty.trim(), yearOfStudy: Number(form.yearOfStudy), interests: form.interests.split(',').map((s: string) => s.trim()).filter(Boolean), hobbies: form.hobbies.split(',').map((s: string) => s.trim()).filter(Boolean) }); localStorage.setItem('campus_user', JSON.stringify(u)); }
+      if (stored) { const u = JSON.parse(stored); Object.assign(u, { name: form.name.trim(), username: form.username.trim(), avatar: avatarUrl, coverImage: coverUrl, bio: form.bio.trim(), course: form.course.trim(), faculty: form.faculty.trim(), yearOfStudy: Number(form.yearOfStudy), age: form.age ? parseInt(form.age, 10) : null, gender: form.gender.trim(), university: form.university.trim(), interests: form.interests.split(',').map((s: string) => s.trim()).filter(Boolean), hobbies: form.hobbies.split(',').map((s: string) => s.trim()).filter(Boolean) }); localStorage.setItem('campus_user', JSON.stringify(u)); }
       window.location.reload();
     } catch { setError('Network error'); setSaving(false); }
   };
@@ -237,6 +246,8 @@ function EditProfileModal({ onClose }: { onClose: () => void }) {
           <div><label className="text-xs font-medium text-gray-600 block mb-1">Bio</label><textarea value={form.bio} onChange={(e) => setForm(p => ({ ...p, bio: e.target.value }))} rows={2} className="input-field resize-none" placeholder="About you..." /></div>
           <div className="grid grid-cols-2 gap-3"><div><label className="text-xs font-medium text-gray-600 block mb-1">Course</label><input type="text" value={form.course} onChange={(e) => setForm(p => ({ ...p, course: e.target.value }))} className="input-field" /></div><div><label className="text-xs font-medium text-gray-600 block mb-1">Faculty</label><input type="text" value={form.faculty} onChange={(e) => setForm(p => ({ ...p, faculty: e.target.value }))} className="input-field" /></div></div>
           <div><label className="text-xs font-medium text-gray-600 block mb-1">Year</label><select value={form.yearOfStudy} onChange={(e) => setForm(p => ({ ...p, yearOfStudy: parseInt(e.target.value) }))} className="input-field"><option value={1}>1</option><option value={2}>2</option><option value={3}>3</option><option value={4}>4</option><option value={5}>5</option><option value={6}>6</option></select></div>
+          <div><label className="text-xs font-medium text-gray-600 block mb-1">University</label><input type="text" value={form.university} onChange={(e) => setForm(p => ({ ...p, university: e.target.value }))} className="input-field" placeholder="Your university" /></div>
+          <div className="grid grid-cols-2 gap-3"><div><label className="text-xs font-medium text-gray-600 block mb-1">Age</label><input type="number" min={13} max={100} value={form.age} onChange={(e) => setForm(p => ({ ...p, age: e.target.value }))} className="input-field" placeholder="e.g. 20" /></div><div><label className="text-xs font-medium text-gray-600 block mb-1">Gender</label><select value={form.gender} onChange={(e) => setForm(p => ({ ...p, gender: e.target.value }))} className="input-field"><option value="">Select…</option><option value="Female">Female</option><option value="Male">Male</option><option value="Non-binary">Non-binary</option><option value="Prefer not to say">Prefer not to say</option></select></div></div>
           <div><label className="text-xs font-medium text-gray-600 block mb-1">Interests (comma-separated)</label><input type="text" value={form.interests} onChange={(e) => setForm(p => ({ ...p, interests: e.target.value }))} className="input-field" placeholder="Tech, Music, Sports" /></div>
           <div><label className="text-xs font-medium text-gray-600 block mb-1">Hobbies (comma-separated)</label><input type="text" value={form.hobbies} onChange={(e) => setForm(p => ({ ...p, hobbies: e.target.value }))} className="input-field" placeholder="Coding, Basketball" /></div>
           <button onClick={handleSave} disabled={saving} className="btn-primary w-full disabled:opacity-50">{saving ? 'Saving...' : 'Save Profile'}</button>

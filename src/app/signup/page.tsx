@@ -16,7 +16,8 @@ export default function SignupPage() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (!isLoading && user) router.replace('/');
+    // If already signed in, send them to onboarding (if not done) or the app.
+    if (!isLoading && user) router.replace(user.onboarded ? '/' : '/onboarding');
   }, [user, isLoading, router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -42,7 +43,8 @@ export default function SignupPage() {
     setLoading(false);
 
     if (result.success) {
-      router.push('/');
+      // Send brand-new users through the quick onboarding quiz first.
+      router.push('/onboarding');
     } else {
       setError(result.error || 'Signup failed');
     }

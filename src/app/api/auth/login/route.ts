@@ -53,6 +53,10 @@ export async function POST(request: Request) {
       hobbies: JSON.parse(user.hobbies || '[]'),
       isOnline: true,
       isAdmin,
+      age: user.age ?? null,
+      gender: user.gender || '',
+      university: user.university || '',
+      onboarded: !!user.onboarded,
     },
   });
 }

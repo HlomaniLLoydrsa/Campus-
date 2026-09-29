@@ -53,6 +53,10 @@ export interface User {
   course: string;
   faculty: string;
   yearOfStudy: number;
+  age?: number | null;
+  gender?: string;
+  university?: string;
+  onboarded?: boolean;
   interests: string[];
   hobbies: string[];
   socialLinks?: { platform: string; url: string }[];
