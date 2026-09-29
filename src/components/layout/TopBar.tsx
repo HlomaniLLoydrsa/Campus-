@@ -2,11 +2,12 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { Bell, Settings, Search, LogOut, User as UserIcon } from 'lucide-react';
+import { Bell, Settings, Search, LogOut, User as UserIcon, Shield } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
 import { useAuth } from '@/context/AuthContext';
 import { useFeedback } from '@/context/FeedbackContext';
 import { useRouter } from 'next/navigation';
+import { useHideOnScroll } from '@/lib/useHideOnScroll';
 import Logo from '@/components/Logo';
 
 export default function TopBar() {
@@ -15,6 +16,10 @@ export default function TopBar() {
   const { confirm, toast } = useFeedback();
   const router = useRouter();
   const [showMenu, setShowMenu] = useState(false);
+  // Hide the bar when scrolling down, reveal it the instant the user scrolls up.
+  const hidden = useHideOnScroll();
+  // Close the profile dropdown whenever the bar hides so it never floats detached.
+  React.useEffect(() => { if (hidden) setShowMenu(false); }, [hidden]);
 
   const handleLogout = async () => {
     const ok = await confirm({ title: 'Log out of VYBE?', confirmText: 'Log out' });
@@ -22,7 +27,10 @@ export default function TopBar() {
   };
 
   return (
-    <header className="sticky top-0 z-40 bg-campus-dark border-b border-white/10">
+    <header
+      className="sticky top-0 z-40 bg-campus-dark border-b border-white/10 transition-transform duration-300 ease-in-out"
+      style={{ transform: hidden ? 'translateY(-100%)' : 'translateY(0)' }}
+    >
       <div className="flex items-center justify-between px-4 py-3 max-w-screen-xl mx-auto">
         {/* Mobile logo */}
         <Link href="/" className="lg:hidden flex items-center gap-2">
@@ -76,6 +84,11 @@ export default function TopBar() {
                   <Link href="/settings" onClick={() => setShowMenu(false)} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
                     <Settings size={16} /> Settings
                   </Link>
+                  {currentUser.isAdmin && (
+                    <Link href="/admin" onClick={() => setShowMenu(false)} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-campus-primary font-medium hover:bg-gray-50 transition-colors">
+                      <Shield size={16} /> Admin
+                    </Link>
+                  )}
                   <button onClick={handleLogout} className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors border-t border-gray-50">
                     <LogOut size={16} /> Log Out
                   </button>
