@@ -4,16 +4,20 @@ import { verifyPassword, isLegacyHash, hashPassword, setSessionCookie, isAdminEm
 
 export async function POST(request: Request) {
   const body = await request.json();
-  const { email, password } = body;
+  // Accept `identifier` (email OR username). Keep `email` for backward compatibility.
+  const identifier = (body.identifier ?? body.email ?? '').toString().trim();
+  const { password } = body;
 
-  if (!email || !password) return NextResponse.json({ error: 'Email and password are required' }, { status: 400 });
+  if (!identifier || !password) return NextResponse.json({ error: 'Email/username and password are required' }, { status: 400 });
 
   const db = await getDb();
 
-  // Look up by email, then verify the password against the stored hash (scrypt or legacy).
-  const user = await db.prepare('SELECT * FROM users WHERE email = ?').get(email.trim()) as any;
+  // Match by email OR username (case-insensitive), then verify the password.
+  const user = await db.prepare(
+    'SELECT * FROM users WHERE LOWER(email) = LOWER(?) OR LOWER(username) = LOWER(?)'
+  ).get(identifier, identifier) as any;
   if (!user || !verifyPassword(password, user.password || '')) {
-    return NextResponse.json({ error: 'Invalid email or password' }, { status: 401 });
+    return NextResponse.json({ error: 'Invalid email/username or password' }, { status: 401 });
   }
 
   // Suspended accounts cannot log in.
