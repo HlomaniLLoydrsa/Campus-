@@ -49,21 +49,26 @@ export default function ConnectActions({ userId, status, compact = false, iconOn
     }
     // Default: two labelled buttons — friend = blue, relationship = red. Compact width.
     return (
-      <div className="flex flex-row flex-wrap gap-2">
-        <button
-          onClick={() => sendRequest(userId, 'friend')}
-          className="flex items-center gap-1.5 bg-blue-600 text-white rounded-xl font-medium transition-all hover:shadow-lg active:scale-95 cursor-pointer px-3 py-1.5 text-xs"
-        >
-          <Users size={13} />
-          <span>Add Friend</span>
-        </button>
-        <button
-          onClick={() => sendRequest(userId, 'relationship')}
-          className="flex items-center gap-1.5 bg-red-500 text-white rounded-xl font-medium transition-all hover:shadow-lg active:scale-95 cursor-pointer px-3 py-1.5 text-xs"
-        >
-          <Heart size={13} />
-          <span>Relationship</span>
-        </button>
+      <div className="space-y-1.5">
+        <p className="text-[11px] text-gray-400">Send friend request or relationship request</p>
+        <div className="flex flex-row flex-wrap gap-2">
+          <button
+            onClick={() => sendRequest(userId, 'friend')}
+            title="Send a friend request"
+            className="flex items-center gap-1.5 bg-blue-600 text-white rounded-xl font-medium transition-all hover:shadow-lg active:scale-95 cursor-pointer px-3 py-1.5 text-xs"
+          >
+            <Users size={13} />
+            <span>Add Friend</span>
+          </button>
+          <button
+            onClick={() => sendRequest(userId, 'relationship')}
+            title="Send a relationship request"
+            className="flex items-center gap-1.5 bg-red-500 text-white rounded-xl font-medium transition-all hover:shadow-lg active:scale-95 cursor-pointer px-3 py-1.5 text-xs"
+          >
+            <Heart size={13} />
+            <span>Relationship</span>
+          </button>
+        </div>
       </div>
     );
   }

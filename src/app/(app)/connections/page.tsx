@@ -65,6 +65,13 @@ function ConnectionsContent() {
             </button>
           </div>
 
+          {/* Short helper describing the active tab */}
+          <p className="text-xs text-gray-400 mb-4">
+            {activeTab === 'requests'
+              ? 'Friend and relationship requests you have received or sent. Accept, decline, or cancel them here.'
+              : 'Find people on campus. Send friend request or relationship request.'}
+          </p>
+
           {/* REQUESTS TAB */}
           {activeTab === 'requests' && (
             <div className="space-y-4">
