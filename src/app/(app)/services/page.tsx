@@ -87,7 +87,7 @@ function ServicesContent() {
           </div>
 
           {kind === 'service' && (
-            <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-2 mb-3 -mx-1 px-1">
+            <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-2 mb-3">
               <button onClick={() => setCategory('')} className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap ${!category ? 'bg-campus-primary text-white' : 'bg-gray-100 text-gray-600'}`}>All</button>
               {SERVICE_CATEGORIES.filter(c => c.value !== 'tutoring').map(c => (
                 <button key={c.value} onClick={() => setCategory(category === c.value ? '' : c.value)} className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap ${category === c.value ? 'bg-campus-primary text-white' : 'bg-gray-100 text-gray-600'}`}>{c.emoji} {c.label}</button>
@@ -95,7 +95,7 @@ function ServicesContent() {
             </div>
           )}
 
-          <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-2 mb-4 -mx-1 px-1">
+          <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-2 mb-4">
             {tabs.map(t => (
               <button key={t.key} onClick={() => setTab(t.key)} className={`px-3 py-1.5 rounded-xl text-xs font-medium whitespace-nowrap ${tab === t.key ? 'bg-campus-primary/10 text-campus-primary' : 'bg-gray-50 text-gray-500'}`}>{t.label}</button>
             ))}
