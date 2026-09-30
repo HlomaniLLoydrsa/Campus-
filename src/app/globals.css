@@ -82,11 +82,14 @@
   }
 }
 
-/* Prevent accidental horizontal scrolling / content overflow on small phones (320px+) */
+/* Prevent accidental horizontal scrolling / content overflow on small phones (320px+).
+   Use `clip` (not `hidden`): `overflow-x: hidden` on an ancestor silently BREAKS
+   `position: sticky` for descendants (e.g. the TopBar), whereas `clip` prevents
+   sideways scroll WITHOUT establishing a scroll container, so sticky keeps working. */
 html, body {
   width: 100%;
   max-width: 100%;
-  overflow-x: hidden;
+  overflow-x: clip;
 }
 
 /* Never let the whole page grow wider than the screen. The app uses a

@@ -21,7 +21,12 @@ export function useHideOnScroll(threshold = 8): boolean {
     // CSS (this app sets `overflow-x: hidden` on html/body, which can move the
     // scroll container onto the body). Read whichever is actually scrolling.
     const getScrollY = () =>
-      window.scrollY || document.documentElement.scrollTop || document.body.scrollTop || 0;
+      Math.max(
+        window.scrollY || 0,
+        window.pageYOffset || 0,
+        document.documentElement?.scrollTop || 0,
+        document.body?.scrollTop || 0,
+      );
 
     lastY.current = getScrollY();
 
@@ -29,12 +34,15 @@ export function useHideOnScroll(threshold = 8): boolean {
       const y = getScrollY();
       const delta = y - lastY.current;
 
-      // Always show near the top.
       if (y < 64) {
+        // Always show near the top.
         setHidden(false);
-      } else if (Math.abs(delta) > threshold) {
-        // Scrolling down → hide; scrolling up → show.
-        setHidden(delta > 0);
+      } else if (delta < -threshold) {
+        // Scrolling UP → always reveal.
+        setHidden(false);
+      } else if (delta > threshold) {
+        // Scrolling DOWN → hide.
+        setHidden(true);
       }
       lastY.current = y;
       ticking.current = false;
@@ -47,13 +55,17 @@ export function useHideOnScroll(threshold = 8): boolean {
       }
     };
 
-    // Listen on window (bubbles from document) AND capture scrolls from any
-    // scrolling element via the capture phase, so we catch body/html scrolling too.
+    // Listen on window AND in the capture phase so we catch scrolling no matter
+    // which element (window / html / body / a scroll container) actually scrolls.
     window.addEventListener('scroll', onScroll, { passive: true });
     document.addEventListener('scroll', onScroll, { passive: true, capture: true });
+    window.addEventListener('wheel', onScroll, { passive: true });
+    window.addEventListener('touchmove', onScroll, { passive: true });
     return () => {
       window.removeEventListener('scroll', onScroll);
       document.removeEventListener('scroll', onScroll, { capture: true } as any);
+      window.removeEventListener('wheel', onScroll);
+      window.removeEventListener('touchmove', onScroll);
     };
   }, [threshold]);
 
