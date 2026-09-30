@@ -77,6 +77,13 @@ interface AppContextType {
   friendsPresence: FriendPresence[];
   setPresenceLocation: (location: string, note?: string) => Promise<boolean>;
   clearPresence: () => Promise<void>;
+  // Vybe Assistant — AI chat buddy.
+  askAssistant: (message: string, history: AssistantTurn[]) => Promise<{ reply: string; source: 'ai' | 'fallback' }>;
+}
+
+export interface AssistantTurn {
+  role: 'user' | 'assistant';
+  content: string;
 }
 
 export interface MyPresence {
@@ -387,6 +394,19 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const clearPresence = useCallback(async (): Promise<void> => {
     setMyPresence(null);
     try { await fetch('/api/presence', { method: 'DELETE' }); } catch {}
+  }, []);
+
+  // Vybe Assistant — send a message + recent history, get a reply. Falls back
+  // to a friendly error string if the request fails so the UI never hangs.
+  const askAssistant = useCallback(async (message: string, history: AssistantTurn[]): Promise<{ reply: string; source: 'ai' | 'fallback' }> => {
+    try {
+      const res = await fetch('/api/assistant', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message, history }) });
+      if (!res.ok) return { reply: "Sorry, I couldn't answer that just now. Try again in a sec?", source: 'fallback' };
+      const data = await res.json();
+      return { reply: data.reply || 'Hmm, I got nothing back. Try rephrasing?', source: data.source === 'ai' ? 'ai' : 'fallback' };
+    } catch {
+      return { reply: "I'm having trouble connecting right now. Check your connection and try again.", source: 'fallback' };
+    }
   }, []);
 
   const isConnected = useCallback((targetId: string) => (connections[currentUser.id] || []).includes(targetId) || relationships[currentUser.id] === targetId, [connections, relationships, currentUser.id]);
@@ -782,6 +802,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       badges, profileStats,
       users, getUserById, refreshData,
       myPresence, friendsPresence, setPresenceLocation, clearPresence,
+      askAssistant,
     }}>
       {children}
     </AppContext.Provider>

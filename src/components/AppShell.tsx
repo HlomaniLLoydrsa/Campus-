@@ -4,6 +4,7 @@ import React, { useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
 import OfflineBanner from '@/components/OfflineBanner';
+import AssistantWidget from '@/components/assistant/AssistantWidget';
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const { user, isLoading } = useAuth();
@@ -39,6 +40,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     <>
       <OfflineBanner />
       {children}
+      <AssistantWidget />
     </>
   );
 }
