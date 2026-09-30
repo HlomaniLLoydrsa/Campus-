@@ -65,8 +65,18 @@ export async function POST(request: Request) {
   const body = await request.json();
   const { conversationId, content, replyToId } = body;
 
-  if (!conversationId || !content) {
-    return NextResponse.json({ error: 'conversationId and content required' }, { status: 400 });
+  // Optional attachment (image or voice note). Validated lightly here — the file
+  // itself was already uploaded via /api/upload, which enforces type/size.
+  const attachmentType = body.attachmentType === 'image' || body.attachmentType === 'audio' ? body.attachmentType : null;
+  const attachmentUrl = attachmentType && typeof body.attachmentUrl === 'string' ? body.attachmentUrl : null;
+  const attachmentDuration = attachmentType === 'audio' && Number.isFinite(body.attachmentDuration)
+    ? Math.max(0, Math.round(body.attachmentDuration))
+    : null;
+  const safeContent = typeof content === 'string' ? content : '';
+
+  // A message must have text OR an attachment.
+  if (!conversationId || (!safeContent.trim() && !attachmentUrl)) {
+    return NextResponse.json({ error: 'conversationId and content or attachment required' }, { status: 400 });
   }
 
   const db = await getDb();
@@ -104,14 +114,16 @@ export async function POST(request: Request) {
 
   const id = `m_${crypto.randomUUID().slice(0, 8)}`;
   const createdAt = new Date().toISOString();
-  await db.prepare('INSERT INTO messages (id, conversationId, senderId, content, read, replyToId, createdAt) VALUES (?, ?, ?, ?, 0, ?, ?)').run(id, conversationId, senderId, content, validReplyTo, createdAt);
+  await db.prepare('INSERT INTO messages (id, conversationId, senderId, content, read, replyToId, attachmentType, attachmentUrl, attachmentDuration, createdAt) VALUES (?, ?, ?, ?, 0, ?, ?, ?, ?, ?)').run(
+    id, conversationId, senderId, safeContent, validReplyTo, attachmentType, attachmentUrl, attachmentDuration, createdAt
+  );
 
   // Messages (direct AND group) intentionally do NOT create notifications.
   // Unread messages are surfaced only via the message icon badge (conversation
   // unreadCount). Group *membership* events (added to a group, made an admin) DO
   // create notifications — those live in the conversations routes, not here.
 
-  return NextResponse.json({ id, conversationId, senderId, content, read: false, replyToId: validReplyTo, createdAt }, { status: 201 });
+  return NextResponse.json({ id, conversationId, senderId, content: safeContent, read: false, replyToId: validReplyTo, attachmentType, attachmentUrl, attachmentDuration, createdAt }, { status: 201 });
 }
 
 // PATCH /api/messages

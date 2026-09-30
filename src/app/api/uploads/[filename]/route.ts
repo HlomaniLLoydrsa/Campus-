@@ -11,6 +11,9 @@ const CONTENT_TYPES: Record<string, string> = {
   ppt: 'application/vnd.ms-powerpoint', pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
   xls: 'application/vnd.ms-excel', xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
   odt: 'application/vnd.oasis.opendocument.text', zip: 'application/zip',
+  // Audio (voice notes)
+  webm: 'audio/webm', ogg: 'audio/ogg', oga: 'audio/ogg', m4a: 'audio/mp4',
+  mp3: 'audio/mpeg', wav: 'audio/wav', aac: 'audio/aac',
 };
 
 // GET /api/uploads/:filename — serve an uploaded image (Netlify Blobs in prod, disk locally)

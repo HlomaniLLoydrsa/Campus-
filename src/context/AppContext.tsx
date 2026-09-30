@@ -25,7 +25,7 @@ interface AppContextType {
   getRequestForUser: (targetId: string) => ConnectionRequest | undefined;
   isConnected: (targetId: string) => boolean;
   conversations: Conversation[];
-  sendMessage: (conversationId: string, content: string, replyToId?: string | null) => void;
+  sendMessage: (conversationId: string, content: string, replyToId?: string | null, attachment?: { type: 'image' | 'audio'; url: string; duration?: number }) => void;
   reactToMessage: (conversationId: string, messageId: string, emoji: string) => void;
   createConversation: (participantIds: string[], name?: string, type?: 'direct' | 'group') => string;
   createGroup: (opts: { name: string; description?: string; image?: string; privacy?: 'private' | 'discoverable'; memberIds: string[] }) => Promise<string | null>;
@@ -476,8 +476,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
     return tempId;
   }, [conversations, currentUser.id, isConnected]);
 
-  const sendMessage = useCallback(async (conversationId: string, content: string, replyToId?: string | null) => {
-    if (!content.trim()) return;
+  const sendMessage = useCallback(async (conversationId: string, content: string, replyToId?: string | null, attachment?: { type: 'image' | 'audio'; url: string; duration?: number }) => {
+    // A message needs text OR an attachment.
+    if (!content.trim() && !attachment) return;
     // Resolve an optimistic reply preview from the message being replied to.
     let replyTo: Message['replyTo'] | undefined;
     if (replyToId) {
@@ -485,10 +486,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const parent = conv?.messages.find(m => m.id === replyToId);
       if (parent) replyTo = { id: parent.id, senderId: parent.senderId, content: (parent.content || '').slice(0, 120) };
     }
-    const msg: Message = { id: `m${Date.now()}`, senderId: currentUser.id, content, timestamp: new Date().toISOString(), read: true, reactions: {}, replyToId: replyToId || null, replyTo };
+    const msg: Message = {
+      id: `m${Date.now()}`, senderId: currentUser.id, content, timestamp: new Date().toISOString(), read: true, reactions: {}, replyToId: replyToId || null, replyTo,
+      attachmentType: attachment?.type || null,
+      attachmentUrl: attachment?.url || null,
+      attachmentDuration: attachment?.type === 'audio' ? (attachment.duration ?? null) : null,
+    };
     setConversations(prev => prev.map(c => c.id === conversationId ? { ...c, messages: [...c.messages, msg], lastMessage: msg } : c));
     try {
-      await fetch('/api/messages', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ conversationId, senderId: currentUser.id, content, replyToId: replyToId || null }) });
+      await fetch('/api/messages', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
+        conversationId, senderId: currentUser.id, content, replyToId: replyToId || null,
+        attachmentType: attachment?.type, attachmentUrl: attachment?.url, attachmentDuration: attachment?.duration,
+      }) });
     } catch {}
   }, [currentUser.id, conversations]);
 

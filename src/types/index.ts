@@ -171,6 +171,17 @@ export interface Message {
   replyToId?: string | null;
   /** Small preview of the replied-to message, resolved by the server. */
   replyTo?: { id: string; senderId: string; content: string } | null;
+  /** Attachment: an image or a voice note sent with the message. */
+  attachmentType?: 'image' | 'audio' | null;
+  attachmentUrl?: string | null;
+  /** Length of a voice note in seconds (audio attachments only). */
+  attachmentDuration?: number | null;
+}
+
+export interface MessageAttachment {
+  type: 'image' | 'audio';
+  url: string;
+  duration?: number;
 }
 
 export interface Conversation {

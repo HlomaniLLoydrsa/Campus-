@@ -15,7 +15,18 @@ const MIME_EXT: Record<string, string> = {
   'image/heif': 'heif',
   'image/bmp': 'bmp',
   'image/tiff': 'tiff',
+  // Audio (voice notes). webm is what MediaRecorder produces on most browsers;
+  // mp4/m4a on Safari/iOS. ogg/mpeg included for completeness.
+  'audio/webm': 'webm',
+  'audio/ogg': 'ogg',
+  'audio/mp4': 'm4a',
+  'audio/x-m4a': 'm4a',
+  'audio/mpeg': 'mp3',
+  'audio/mp3': 'mp3',
+  'audio/wav': 'wav',
 };
+
+const AUDIO_EXTS = ['webm', 'ogg', 'm4a', 'mp3', 'wav', 'mp4', 'aac', 'oga'];
 
 export async function POST(request: Request) {
   try {
@@ -32,20 +43,23 @@ export async function POST(request: Request) {
 
     // Accept ANY raster image — by MIME type, or (when the browser sends a generic/blank
     // MIME, common with some phone galleries) by a recognized image extension.
+    // Also accept audio (voice notes) for chat messages.
     // NOTE: SVG is intentionally rejected. SVGs can carry <script> and, served inline,
     // become a stored-XSS vector. Everything user-facing needs only raster images anyway.
     const IMAGE_EXTS = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'avif', 'heic', 'heif', 'bmp', 'tiff', 'tif', 'jfif'];
     const nameExt = (file.name.split('.').pop() || '').toLowerCase();
     const isSvg = file.type === 'image/svg+xml' || nameExt === 'svg';
     const looksLikeImage = !isSvg && (file.type.startsWith('image/') || IMAGE_EXTS.includes(nameExt));
-    if (!looksLikeImage) {
-      return NextResponse.json({ error: isSvg ? 'SVG images are not supported. Please upload a JPG, PNG, or similar.' : 'Please upload an image file.' }, { status: 400 });
+    const looksLikeAudio = file.type.startsWith('audio/') || AUDIO_EXTS.includes(nameExt);
+    if (!looksLikeImage && !looksLikeAudio) {
+      return NextResponse.json({ error: isSvg ? 'SVG images are not supported. Please upload a JPG, PNG, or similar.' : 'Unsupported file type. Please upload an image or voice note.' }, { status: 400 });
     }
 
-    // Validate file size (max 15MB — phone photos can be large)
-    const maxSize = 15 * 1024 * 1024;
+    // Size caps: images can be large phone photos (15MB); voice notes are small (10MB is
+    // generous for a few minutes of compressed audio).
+    const maxSize = looksLikeAudio ? 10 * 1024 * 1024 : 15 * 1024 * 1024;
     if (file.size > maxSize) {
-      return NextResponse.json({ error: 'Image too large. Maximum 15MB.' }, { status: 400 });
+      return NextResponse.json({ error: looksLikeAudio ? 'Voice note too large. Maximum 10MB.' : 'Image too large. Maximum 15MB.' }, { status: 400 });
     }
 
     // Derive a clean extension

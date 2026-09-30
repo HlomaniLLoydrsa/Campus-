@@ -6,8 +6,10 @@ import Sidebar from '@/components/layout/Sidebar';
 import BottomNav from '@/components/layout/BottomNav';
 import TopBar from '@/components/layout/TopBar';
 import { useApp } from '@/context/AppContext';
-import { Send, ArrowLeft, Users, UsersRound, Search, MessageCircle, Lock, X, Settings, Compass, Globe, Smile, Reply } from 'lucide-react';
+import { useFeedback } from '@/context/FeedbackContext';
+import { Send, ArrowLeft, Users, UsersRound, Search, MessageCircle, Lock, X, Settings, Compass, Globe, Smile, Reply, ImagePlus, Mic, Trash2, Loader2 } from 'lucide-react';
 import { formatTimeAgo } from '@/lib/utils';
+import { resizeImage } from '@/lib/image';
 import Avatar from '@/components/Avatar';
 import CreateGroupModal from '@/components/messages/CreateGroupModal';
 import ManageGroupModal from '@/components/messages/ManageGroupModal';
@@ -32,7 +34,20 @@ function MessagesContent() {
   const [showManageGroup, setShowManageGroup] = useState(false);
   const [showDiscover, setShowDiscover] = useState(false);
   const [photoLightbox, setPhotoLightbox] = useState<string | null>(null);
+  // Pending image attachment (chosen but not yet sent): preview + uploading state.
+  const [pendingImage, setPendingImage] = useState<{ preview: string; url: string | null } | null>(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
+  // Voice recording state.
+  const [recording, setRecording] = useState(false);
+  const [recordSecs, setRecordSecs] = useState(0);
+  const [sendingVoice, setSendingVoice] = useState(false);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const recordTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const recordCancelledRef = useRef(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const { toast } = useFeedback();
 
   const selectedConversation = conversations.find(c => c.id === selectedConv);
 
@@ -81,15 +96,122 @@ function MessagesContent() {
   };
 
   const handleSend = () => {
-    if (messageText.trim() && selectedConv) {
-      sendMessage(selectedConv, messageText.trim(), replyingTo?.id || null);
+    if (!selectedConv) return;
+    const text = messageText.trim();
+    // Send with the pending image if there is one (and it finished uploading).
+    if (pendingImage?.url) {
+      sendMessage(selectedConv, text, replyingTo?.id || null, { type: 'image', url: pendingImage.url });
+      setMessageText('');
+      setReplyingTo(null);
+      clearPendingImage();
+      return;
+    }
+    // Don't send while the image is still uploading.
+    if (pendingImage && !pendingImage.url) { toast('Hold on — the image is still uploading'); return; }
+    if (text) {
+      sendMessage(selectedConv, text, replyingTo?.id || null);
       setMessageText('');
       setReplyingTo(null);
     }
   };
 
-  // Clear any in-progress reply when switching conversations.
-  useEffect(() => { setReplyingTo(null); }, [selectedConv]);
+  const clearPendingImage = () => {
+    setPendingImage(prev => { if (prev?.preview) URL.revokeObjectURL(prev.preview); return null; });
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  // Upload a chosen image, keeping a local preview meanwhile.
+  const handleImagePick = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const preview = URL.createObjectURL(file);
+    setPendingImage({ preview, url: null });
+    setUploadingImage(true);
+    try {
+      const resized = await resizeImage(file);
+      const fd = new FormData();
+      fd.append('file', resized);
+      const res = await fetch('/api/upload', { method: 'POST', body: fd, credentials: 'include' });
+      if (!res.ok) throw new Error('upload failed');
+      const data = await res.json();
+      setPendingImage({ preview, url: data.url });
+    } catch {
+      toast('Could not upload that image. Try another.');
+      clearPendingImage();
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
+  // ── Voice recording ──
+  const startRecording = async () => {
+    if (recording) return;
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mr = new MediaRecorder(stream);
+      audioChunksRef.current = [];
+      recordCancelledRef.current = false;
+      mr.ondataavailable = (ev) => { if (ev.data.size > 0) audioChunksRef.current.push(ev.data); };
+      mr.onstop = async () => {
+        stream.getTracks().forEach(t => t.stop());
+        if (recordTimerRef.current) { clearInterval(recordTimerRef.current); recordTimerRef.current = null; }
+        const secs = recordSecs;
+        setRecording(false);
+        setRecordSecs(0);
+        if (recordCancelledRef.current) return;
+        const blob = new Blob(audioChunksRef.current, { type: mr.mimeType || 'audio/webm' });
+        if (blob.size === 0 || !selectedConv) return;
+        await uploadAndSendVoice(blob, secs);
+      };
+      mediaRecorderRef.current = mr;
+      mr.start();
+      setRecording(true);
+      setRecordSecs(0);
+      recordTimerRef.current = setInterval(() => setRecordSecs(s => {
+        // Hard cap at 3 minutes.
+        if (s >= 180) { stopRecording(); return s; }
+        return s + 1;
+      }), 1000);
+    } catch {
+      toast('Microphone access is needed to record a voice note.');
+    }
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') mediaRecorderRef.current.stop();
+  };
+
+  const cancelRecording = () => {
+    recordCancelledRef.current = true;
+    stopRecording();
+  };
+
+  const uploadAndSendVoice = async (blob: Blob, secs: number) => {
+    if (!selectedConv) return;
+    setSendingVoice(true);
+    try {
+      const ext = (blob.type.split('/')[1] || 'webm').split(';')[0];
+      const fd = new FormData();
+      fd.append('file', new File([blob], `voice.${ext}`, { type: blob.type }));
+      const res = await fetch('/api/upload', { method: 'POST', body: fd, credentials: 'include' });
+      if (!res.ok) throw new Error('upload failed');
+      const data = await res.json();
+      sendMessage(selectedConv, '', replyingTo?.id || null, { type: 'audio', url: data.url, duration: secs });
+      setReplyingTo(null);
+    } catch {
+      toast('Could not send that voice note. Try again.');
+    } finally {
+      setSendingVoice(false);
+    }
+  };
+
+  // Clear any in-progress reply / attachment / recording when switching conversations.
+  useEffect(() => {
+    setReplyingTo(null);
+    clearPendingImage();
+    if (recording) cancelRecording();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedConv]);
 
   const filteredConversations = conversations.filter(c => {
     const name = getConversationName(c);
@@ -132,6 +254,7 @@ function MessagesContent() {
                   const name = getConversationName(conv);
                   const lastMsg = conv.lastMessage;
                   const senderName = lastMsg ? (lastMsg.senderId === currentUser.id ? 'You' : getUserById(lastMsg.senderId)?.name?.split(' ')[0]) : '';
+                  const lastPreview = lastMsg ? (lastMsg.content || (lastMsg.attachmentType === 'image' ? '📷 Photo' : lastMsg.attachmentType === 'audio' ? '🎤 Voice note' : '')) : '';
                   return (
                     <button key={conv.id} onClick={() => setSelectedConv(conv.id)} className={`w-full flex items-center gap-3 p-4 hover:bg-gray-50 transition-colors border-b border-gray-50 ${selectedConv === conv.id ? 'bg-campus-primary/5' : ''}`}>
                       {avatar ? (
@@ -146,7 +269,7 @@ function MessagesContent() {
                           <p className="font-semibold text-sm truncate">{name}</p>
                           {lastMsg && <span className="text-[10px] text-gray-400 flex-shrink-0 ml-2">{formatTimeAgo(lastMsg.timestamp)}</span>}
                         </div>
-                        {lastMsg && <p className="text-xs text-gray-500 truncate mt-0.5">{conv.type !== 'direct' && `${senderName}: `}{lastMsg.content}</p>}
+                        {lastMsg && <p className="text-xs text-gray-500 truncate mt-0.5">{conv.type !== 'direct' && `${senderName}: `}{lastPreview}</p>}
                       </div>
                       {conv.unreadCount > 0 && <span className="w-5 h-5 bg-campus-primary text-white text-[10px] font-bold rounded-full flex items-center justify-center flex-shrink-0">{conv.unreadCount}</span>}
                     </button>
@@ -216,6 +339,7 @@ function MessagesContent() {
                       onOpenProfile={(uid) => router.push(`/profile/${uid}`)}
                       onOpenPost={(pid) => router.push(`/?post=${pid}`)}
                       onOpenGame={(gid) => router.push(`/games?open=${gid}`)}
+                      onOpenPhoto={(url) => setPhotoLightbox(url)}
                       onReact={(emoji) => reactToMessage(selectedConversation.id, msg.id, emoji)}
                       onReply={() => setReplyingTo({ id: msg.id, senderId: msg.senderId, content: msg.content })}
                       onJumpTo={(mid) => { const el = document.getElementById(`msg-${mid}`); if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); el.classList.add('ring-2', 'ring-campus-primary'); setTimeout(() => el.classList.remove('ring-2', 'ring-campus-primary'), 1500); } }}
@@ -237,10 +361,38 @@ function MessagesContent() {
                         <button onClick={() => setReplyingTo(null)} aria-label="Cancel reply" className="p-1 rounded-lg hover:bg-gray-200 flex-shrink-0"><X size={15} className="text-gray-500" /></button>
                       </div>
                     )}
-                    <div className="flex items-center gap-2">
-                      <input type="text" value={messageText} onChange={(e) => setMessageText(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleSend()} placeholder={replyingTo ? 'Type your reply…' : 'Type a message...'} className="input-field" />
-                      <button onClick={handleSend} disabled={!messageText.trim()} className="btn-primary p-3 disabled:opacity-50"><Send size={18} /></button>
-                    </div>
+                    {/* Pending image preview */}
+                    {pendingImage && (
+                      <div className="mb-2 relative inline-block">
+                        <img src={pendingImage.preview} alt="attachment preview" className="h-20 w-20 object-cover rounded-xl border border-gray-200" />
+                        {uploadingImage && (
+                          <div className="absolute inset-0 rounded-xl bg-black/40 flex items-center justify-center"><Loader2 size={20} className="text-white animate-spin" /></div>
+                        )}
+                        <button onClick={clearPendingImage} aria-label="Remove image" className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-gray-800 text-white flex items-center justify-center shadow"><X size={14} /></button>
+                      </div>
+                    )}
+
+                    {recording ? (
+                      /* Recording bar */
+                      <div className="flex items-center gap-3 p-2 bg-red-50 border border-red-100 rounded-xl">
+                        <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse flex-shrink-0" />
+                        <span className="text-sm font-medium text-red-600 tabular-nums">{Math.floor(recordSecs / 60)}:{String(recordSecs % 60).padStart(2, '0')}</span>
+                        <span className="text-xs text-gray-500 flex-1">Recording voice note…</span>
+                        <button onClick={cancelRecording} aria-label="Cancel recording" title="Cancel" className="p-2 rounded-lg hover:bg-red-100 text-gray-500"><Trash2 size={18} /></button>
+                        <button onClick={stopRecording} aria-label="Send voice note" title="Send" className="btn-primary p-2.5"><Send size={16} /></button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <input ref={fileInputRef} type="file" accept="image/*" onChange={handleImagePick} className="hidden" />
+                        <button onClick={() => fileInputRef.current?.click()} disabled={!!pendingImage || sendingVoice} aria-label="Attach image" title="Attach image" className="p-2.5 rounded-xl text-gray-500 hover:bg-gray-100 disabled:opacity-40 flex-shrink-0"><ImagePlus size={20} /></button>
+                        <input type="text" value={messageText} onChange={(e) => setMessageText(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleSend()} placeholder={replyingTo ? 'Type your reply…' : 'Type a message...'} className="input-field" />
+                        {messageText.trim() || pendingImage ? (
+                          <button onClick={handleSend} disabled={uploadingImage} className="btn-primary p-3 disabled:opacity-50 flex-shrink-0"><Send size={18} /></button>
+                        ) : (
+                          <button onClick={startRecording} disabled={sendingVoice} aria-label="Record voice note" title="Record voice note" className="btn-primary p-3 disabled:opacity-50 flex-shrink-0">{sendingVoice ? <Loader2 size={18} className="animate-spin" /> : <Mic size={18} />}</button>
+                        )}
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <div className="p-4 border-t border-gray-100">
@@ -306,7 +458,7 @@ function MessagesContent() {
 const REACTION_EMOJIS = ['❤️', '😂', '👍', '😮', '😢', '🙏'];
 
 // A single chat message bubble with reactions + reply (works for direct & group).
-function MessageBubble({ msg, isOwn, isGroup, currentUserId, sender, getUserById, onOpenProfile, onOpenPost, onOpenGame, onReact, onReply, onJumpTo }: {
+function MessageBubble({ msg, isOwn, isGroup, currentUserId, sender, getUserById, onOpenProfile, onOpenPost, onOpenGame, onOpenPhoto, onReact, onReply, onJumpTo }: {
   msg: any;
   isOwn: boolean;
   isGroup: boolean;
@@ -316,6 +468,7 @@ function MessageBubble({ msg, isOwn, isGroup, currentUserId, sender, getUserById
   onOpenProfile: (uid: string) => void;
   onOpenPost: (pid: string) => void;
   onOpenGame: (gid: string) => void;
+  onOpenPhoto: (url: string) => void;
   onReact: (emoji: string) => void;
   onReply: () => void;
   onJumpTo: (mid: string) => void;
@@ -335,7 +488,32 @@ function MessageBubble({ msg, isOwn, isGroup, currentUserId, sender, getUserById
       const [, gameId, label] = gameMatch;
       return <button onClick={() => onOpenGame(gameId)} className={`text-sm text-left underline decoration-dotted font-medium ${isOwn ? 'text-white' : 'text-campus-primary'}`}>{label || 'Open game'}</button>;
     }
+    if (!msg.content) return null;
     return <p className="text-sm break-words">{msg.content}</p>;
+  };
+
+  const fmtDur = (s?: number | null) => {
+    const n = Math.max(0, Math.round(s || 0));
+    return `${Math.floor(n / 60)}:${String(n % 60).padStart(2, '0')}`;
+  };
+
+  const renderAttachment = () => {
+    if (msg.attachmentType === 'image' && msg.attachmentUrl) {
+      return (
+        <button onClick={(e) => { e.stopPropagation(); onOpenPhoto(msg.attachmentUrl); }} className="block mt-1 mb-0.5">
+          <img src={msg.attachmentUrl} alt="Shared image" loading="lazy" className="max-w-[220px] max-h-[260px] w-auto rounded-xl object-cover" />
+        </button>
+      );
+    }
+    if (msg.attachmentType === 'audio' && msg.attachmentUrl) {
+      return (
+        <div className="mt-1 mb-0.5" onClick={(e) => e.stopPropagation()}>
+          <audio controls preload="none" src={msg.attachmentUrl} className="max-w-[240px] h-10" />
+          {msg.attachmentDuration ? <p className={`text-[10px] mt-0.5 ${isOwn ? 'text-white/60' : 'text-gray-400'}`}>🎤 {fmtDur(msg.attachmentDuration)}</p> : null}
+        </div>
+      );
+    }
+    return null;
   };
 
   return (
@@ -376,6 +554,7 @@ function MessageBubble({ msg, isOwn, isGroup, currentUserId, sender, getUserById
               </button>
             )}
 
+            {renderAttachment()}
             {renderContent()}
             <div className={`flex items-center gap-1.5 mt-1 ${isOwn ? 'justify-end' : ''}`}>
               <p className={`text-[10px] ${isOwn ? 'text-white/60' : 'text-gray-400'}`}>{formatTimeAgo(msg.timestamp)}</p>

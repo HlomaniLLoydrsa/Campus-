@@ -625,6 +625,11 @@ async function initializeDb() {
   // reply-to (the id of the message this one is replying to).
   await ensureColumn(c, 'messages', 'reactions', 'TEXT');
   await ensureColumn(c, 'messages', 'replyToId', 'TEXT');
+  // Message attachments: an image or a voice note. attachmentType is 'image' | 'audio',
+  // attachmentUrl is the served upload URL, attachmentDuration is seconds (audio only).
+  await ensureColumn(c, 'messages', 'attachmentType', 'TEXT');
+  await ensureColumn(c, 'messages', 'attachmentUrl', 'TEXT');
+  await ensureColumn(c, 'messages', 'attachmentDuration', 'INTEGER');
   // Per-post emoji reactions (JSON map: emoji -> array of userIds).
   await ensureColumn(c, 'posts', 'reactions', 'TEXT');
 }
