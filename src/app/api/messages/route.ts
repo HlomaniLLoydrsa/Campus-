@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getDb } from '@/lib/db';
 import crypto from 'crypto';
 import { requireUserId } from '@/lib/auth';
+import { isBlockedBetween } from '@/lib/blocks';
 
 // GET /api/messages — get conversations for the AUTHENTICATED user (identity from session, not query)
 export async function GET() {
@@ -76,6 +77,15 @@ export async function POST(request: Request) {
   const participants = JSON.parse(conv.participants || '[]');
   if (!participants.includes(senderId)) {
     return NextResponse.json({ error: 'Not authorized' }, { status: 403 });
+  }
+
+  // In a DIRECT chat, a block (either direction) stops messages. Group chats are
+  // left intact — a block shouldn't silently break a whole group's history.
+  if (conv.type === 'direct') {
+    const other = participants.find((p: string) => p !== senderId);
+    if (other && await isBlockedBetween(senderId, other)) {
+      return NextResponse.json({ error: 'You cannot message this user.' }, { status: 403 });
+    }
   }
 
   // If replying, the referenced message must exist in THIS conversation (else drop it).

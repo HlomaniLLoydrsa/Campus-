@@ -2,12 +2,15 @@ import { NextResponse } from 'next/server';
 import { getDb } from '@/lib/db';
 import crypto from 'crypto';
 import { requireUserId, getSessionUserId } from '@/lib/auth';
+import { getHiddenUserIds } from '@/lib/blocks';
 
 // GET /api/posts
 export async function GET() {
   const db = await getDb();
-  // Who's asking — used so we NEVER leak the real author of an anonymous post.
+  // Who's asking — used so we NEVER leak the real author of an anonymous post,
+  // and to hide posts from/to blocked users.
   const viewerId = await getSessionUserId();
+  const hidden = viewerId ? await getHiddenUserIds(viewerId) : new Set<string>();
   const posts = await db.prepare('SELECT * FROM posts ORDER BY createdAt DESC').all();
   const comments = await db.prepare('SELECT * FROM comments ORDER BY createdAt ASC').all();
 
@@ -17,7 +20,12 @@ export async function GET() {
     commentsByPost[c.postId].push({ ...c, likedBy: JSON.parse(c.likedBy || '[]') });
   }
 
-  return NextResponse.json(posts.map((p: any) => {
+  const visible = (posts as any[]).filter(p => {
+    const realOwner = p.ownerId || p.authorId || null;
+    return !(realOwner && hidden.has(realOwner));
+  });
+
+  return NextResponse.json(visible.map((p: any) => {
     const realOwner = p.ownerId || p.authorId || null;
     const isAnon = !!p.isAnonymous;
     // For anonymous posts, only the owner themselves may see ownerId (so they keep

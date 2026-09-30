@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getDb } from '@/lib/db';
 import crypto from 'crypto';
 import { requireUserId } from '@/lib/auth';
+import { isBlockedBetween } from '@/lib/blocks';
 
 // POST /api/conversations — create or fetch a conversation for the authenticated user (connection-gated)
 export async function POST(request: Request) {
@@ -17,6 +18,10 @@ export async function POST(request: Request) {
   if (type === 'direct') {
     if (!otherUserId) return NextResponse.json({ error: 'otherUserId required' }, { status: 400 });
 
+    // Blocked either way → cannot start a conversation.
+    if (await isBlockedBetween(userId, otherUserId)) {
+      return NextResponse.json({ error: 'You cannot message this user.' }, { status: 403 });
+    }
     // Enforce connection rule
     const connected = await db.prepare('SELECT * FROM connections WHERE userId = ? AND connectedUserId = ?').get(userId, otherUserId);
     if (!connected) return NextResponse.json({ error: 'You must be connected to message this person' }, { status: 403 });

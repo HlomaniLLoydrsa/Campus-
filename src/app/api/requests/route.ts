@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getDb } from '@/lib/db';
 import crypto from 'crypto';
 import { requireUserId } from '@/lib/auth';
+import { isBlockedBetween } from '@/lib/blocks';
 
 // GET /api/requests — pending requests involving the authenticated user
 export async function GET() {
@@ -36,6 +37,11 @@ export async function POST(request: Request) {
   }
 
   const db = await getDb();
+
+  // Blocked either way → no requests can flow.
+  if (await isBlockedBetween(fromUserId, toUserId)) {
+    return NextResponse.json({ error: 'You cannot send a request to this user.' }, { status: 403 });
+  }
 
   // Check if already connected
   const existing = await db.prepare('SELECT * FROM connections WHERE userId = ? AND connectedUserId = ?').get(fromUserId, toUserId);

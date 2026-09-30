@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getDb } from '@/lib/db';
 import { getSessionUserId } from '@/lib/auth';
+import { deleteUserCascade } from '@/lib/admin';
 
 // Never expose the password hash. Email is only returned to the account owner.
 const PUBLIC_COLUMNS =
@@ -112,15 +113,11 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
   const user = await db.prepare('SELECT id FROM users WHERE id = ?').get(id) as any;
   if (!user) return NextResponse.json({ error: 'User not found' }, { status: 404 });
 
-  // Remove the user's data across tables (best-effort; ignore tables that may not have rows)
-  await db.prepare('DELETE FROM users WHERE id = ?').run(id);
-  await db.prepare('DELETE FROM posts WHERE authorId = ?').run(id);
-  await db.prepare('DELETE FROM comments WHERE authorId = ?').run(id);
-  await db.prepare('DELETE FROM notifications WHERE userId = ? OR fromUserId = ?').run(id, id);
-  await db.prepare('DELETE FROM connections WHERE userId = ? OR connectedUserId = ?').run(id, id);
-  await db.prepare('DELETE FROM connection_requests WHERE fromUserId = ? OR toUserId = ?').run(id, id);
-  await db.prepare('DELETE FROM messages WHERE senderId = ?').run(id);
-  await db.prepare('DELETE FROM stories WHERE userId = ?').run(id);
+  // Use the canonical cascade (same as admin delete) so anonymous posts (matched
+  // via ownerId), their comments/reactions/reports, and every feature-table row
+  // (marketplace, services, academy, lost-found, secret-admirers, blocks, etc.)
+  // are removed too — no orphans left behind.
+  await deleteUserCascade(id);
 
   return NextResponse.json({ success: true });
 }

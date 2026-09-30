@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getDb } from '@/lib/db';
+import { getSessionUserId } from '@/lib/auth';
+import { getHiddenUserIds } from '@/lib/blocks';
 
 // Public-safe columns only — NEVER select password or email into a list every user can read.
 const PUBLIC_COLUMNS =
@@ -7,7 +9,11 @@ const PUBLIC_COLUMNS =
 
 export async function GET() {
   const db = await getDb();
-  const users = await db.prepare(`SELECT ${PUBLIC_COLUMNS} FROM users`).all();
+  // Hide users blocked in either direction from the directory/discovery.
+  const viewerId = await getSessionUserId();
+  const hidden = viewerId ? await getHiddenUserIds(viewerId) : new Set<string>();
+  const allUsers = await db.prepare(`SELECT ${PUBLIC_COLUMNS} FROM users`).all() as any[];
+  const users = allUsers.filter(u => !hidden.has(u.id));
   // A user is "online" if they've pinged the server within the last 90 seconds.
   const ONLINE_WINDOW_MS = 90 * 1000;
   const now = Date.now();
