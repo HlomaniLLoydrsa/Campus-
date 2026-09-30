@@ -3,12 +3,13 @@
 import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, Compass, Users, MessageCircle, User } from 'lucide-react';
+import { Home, Compass, Users, MessageCircle, User, MapPin } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
 
 const navItems = [
   { href: '/', icon: Home, label: 'Home' },
   { href: '/explore', icon: Compass, label: 'Explore' },
+  { href: '/map', icon: MapPin, label: 'Map' },
   { href: '/connections', icon: Users, label: 'Connect' },
   { href: '/messages', icon: MessageCircle, label: 'Chat' },
   { href: '/profile', icon: User, label: 'Me' },
@@ -26,7 +27,7 @@ export default function BottomNav() {
           const isActive = pathname === item.href || (item.href !== '/' && pathname.startsWith(item.href));
           const Icon = item.icon;
           return (
-            <Link key={item.href} href={item.href} className={`flex flex-col items-center gap-0.5 px-2 py-1.5 rounded-lg transition-colors ${isActive ? 'text-white' : 'text-blue-200/70'}`}>
+            <Link key={item.href} href={item.href} className={`flex flex-col items-center gap-0.5 px-1.5 py-1.5 rounded-lg transition-colors ${isActive ? 'text-white' : 'text-blue-200/70'}`}>
               <div className="relative">
                 <Icon size={20} strokeWidth={isActive ? 2.5 : 2} />
                 {item.href === '/messages' && totalUnread > 0 && (

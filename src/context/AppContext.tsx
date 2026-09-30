@@ -72,6 +72,29 @@ interface AppContextType {
   users: User[];
   getUserById: (id: string) => User | undefined;
   refreshData: () => void;
+  // VYBE Map / Who's-Around — opt-in live campus presence.
+  myPresence: MyPresence | null;
+  friendsPresence: FriendPresence[];
+  setPresenceLocation: (location: string, note?: string) => Promise<boolean>;
+  clearPresence: () => Promise<void>;
+}
+
+export interface MyPresence {
+  location: string;
+  note: string;
+  updatedAt: string;
+  expiresAt: string;
+}
+
+export interface FriendPresence {
+  userId: string;
+  name: string;
+  username: string;
+  avatar: string | null;
+  location: string;
+  note: string;
+  updatedAt: string;
+  expiresAt: string;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -134,6 +157,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [stories, setStories] = useState<Story[]>([]);
   const [badges, setBadges] = useState<{ id: string; name: string; emoji: string; description: string; earned: boolean; earnedAt: string | null }[]>([]);
   const [profileStats, setProfileStats] = useState<Record<string, number>>({});
+  const [myPresence, setMyPresence] = useState<MyPresence | null>(null);
+  const [friendsPresence, setFriendsPresence] = useState<FriendPresence[]>([]);
 
   const getUserById = useCallback((id: string) => users.find(u => u.id === id) || (id === currentUser.id ? currentUser : undefined), [users, currentUser]);
 
@@ -182,10 +207,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const pollFast = async () => {
     if (!currentUser.id) return;
     try {
-      const [notifsRes, reqsRes, convsRes] = await Promise.all([
+      const [notifsRes, reqsRes, convsRes, presenceRes] = await Promise.all([
         fetch(`/api/notifications?userId=${currentUser.id}`),
         fetch(`/api/requests?userId=${currentUser.id}`),
         fetch(`/api/messages?userId=${currentUser.id}`),
+        fetch('/api/presence'),
       ]);
       if (notifsRes.ok) {
         const fresh = await notifsRes.json();
@@ -204,6 +230,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
           const localOnly = prev.filter(c => !serverIds.has(c.id) && c.id.startsWith('conv') && !c.id.startsWith('conv_'));
           return [...fresh, ...localOnly];
         });
+      }
+      if (presenceRes.ok) {
+        const p = await presenceRes.json();
+        setMyPresence(p.me ? { location: p.me.location, note: p.me.note || '', updatedAt: p.me.updatedAt, expiresAt: p.me.expiresAt } : null);
+        setFriendsPresence(Array.isArray(p.friends) ? p.friends : []);
       }
     } catch { /* ignore poll errors */ }
   };
@@ -337,6 +368,26 @@ export function AppProvider({ children }: { children: ReactNode }) {
       .then(saved => { if (saved?.id) setPosts(prev => prev.map(p => p.id === postId ? { ...p, comments: p.comments.map(x => x.id === c.id ? { ...x, id: saved.id } : x) } : p)); })
       .catch(() => {});
   }, [currentUser.id]);
+
+  // VYBE Map — check in at a named campus location (optimistic; server sets expiry).
+  const setPresenceLocation = useCallback(async (location: string, note?: string): Promise<boolean> => {
+    const now = new Date();
+    const expiresAt = new Date(now.getTime() + 120 * 60_000).toISOString();
+    setMyPresence({ location, note: note || '', updatedAt: now.toISOString(), expiresAt });
+    try {
+      const res = await fetch('/api/presence', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location, note: note || '' }) });
+      if (!res.ok) return false;
+      const data = await res.json();
+      setMyPresence({ location: data.location, note: data.note || '', updatedAt: data.updatedAt, expiresAt: data.expiresAt });
+      return true;
+    } catch { return false; }
+  }, []);
+
+  // VYBE Map — check out (remove presence).
+  const clearPresence = useCallback(async (): Promise<void> => {
+    setMyPresence(null);
+    try { await fetch('/api/presence', { method: 'DELETE' }); } catch {}
+  }, []);
 
   const isConnected = useCallback((targetId: string) => (connections[currentUser.id] || []).includes(targetId) || relationships[currentUser.id] === targetId, [connections, relationships, currentUser.id]);
 
@@ -730,6 +781,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       sharePost, editPost, removePostImage, reportContent, deletePost, blockUser,
       badges, profileStats,
       users, getUserById, refreshData,
+      myPresence, friendsPresence, setPresenceLocation, clearPresence,
     }}>
       {children}
     </AppContext.Provider>

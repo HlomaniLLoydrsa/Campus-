@@ -554,6 +554,20 @@ async function initializeDb() {
     CREATE INDEX IF NOT EXISTS idx_pl_sess_date ON planner_sessions(date);
     CREATE INDEX IF NOT EXISTS idx_pl_sess_task ON planner_sessions(taskId);
 
+    -- ── VYBE Map / Who's-Around (opt-in live presence) ────────────
+    -- A user checks into a named campus location; the row auto-expires.
+    -- One row per user (upsert on check-in, deleted on check-out).
+    CREATE TABLE IF NOT EXISTS presence (
+      userId TEXT PRIMARY KEY,
+      location TEXT NOT NULL,                         -- named spot, e.g. 'Library'
+      note TEXT DEFAULT '',                           -- optional short status ("study group table 4")
+      university TEXT,                                 -- snapshot of the user's university for scoping
+      updatedAt TEXT DEFAULT (datetime('now')),
+      expiresAt TEXT NOT NULL                          -- ISO timestamp; presence ignored once past
+    );
+    CREATE INDEX IF NOT EXISTS idx_presence_expires ON presence(expiresAt);
+    CREATE INDEX IF NOT EXISTS idx_presence_university ON presence(university);
+
     -- Core social tables: indexes on hot query columns hit by the realtime polls.
     CREATE INDEX IF NOT EXISTS idx_msg_conv ON messages(conversationId);
     CREATE INDEX IF NOT EXISTS idx_msg_conv_created ON messages(conversationId, createdAt);

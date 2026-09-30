@@ -3,7 +3,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, Compass, Users, MessageCircle, Calendar, User, Heart, Eye, Sparkles, LogOut, Shield } from 'lucide-react';
+import { Home, Compass, Users, MessageCircle, Calendar, User, Heart, Eye, Sparkles, LogOut, Shield, MapPin } from 'lucide-react';
 import { useApp } from '@/context/AppContext';
 import { useAuth } from '@/context/AuthContext';
 import { useFeedback } from '@/context/FeedbackContext';
@@ -14,6 +14,7 @@ const navItems = [
   { href: '/', icon: Home, label: 'Home' },
   { href: '/explore', icon: Compass, label: 'Explore' },
   { href: '/connections', icon: Users, label: 'Connections' },
+  { href: '/map', icon: MapPin, label: 'Vybe Map' },
   { href: '/messages', icon: MessageCircle, label: 'Messages' },
   { href: '/events', icon: Calendar, label: 'Events' },
   { href: '/wingman', icon: Sparkles, label: 'Wingman' },
