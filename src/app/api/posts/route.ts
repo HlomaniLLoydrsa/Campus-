@@ -1,11 +1,13 @@
 import { NextResponse } from 'next/server';
 import { getDb } from '@/lib/db';
 import crypto from 'crypto';
-import { requireUserId } from '@/lib/auth';
+import { requireUserId, getSessionUserId } from '@/lib/auth';
 
 // GET /api/posts
 export async function GET() {
   const db = await getDb();
+  // Who's asking — used so we NEVER leak the real author of an anonymous post.
+  const viewerId = await getSessionUserId();
   const posts = await db.prepare('SELECT * FROM posts ORDER BY createdAt DESC').all();
   const comments = await db.prepare('SELECT * FROM comments ORDER BY createdAt ASC').all();
 
@@ -15,19 +17,29 @@ export async function GET() {
     commentsByPost[c.postId].push({ ...c, likedBy: JSON.parse(c.likedBy || '[]') });
   }
 
-  return NextResponse.json(posts.map((p: any) => ({
-    ...p,
-    isAnonymous: !!p.isAnonymous,
-    ownerId: p.ownerId || p.authorId || null,
-    editedAt: p.editedAt || null,
-    images: JSON.parse(p.images || '[]'),
-    likedBy: JSON.parse(p.likedBy || '[]'),
-    savedBy: JSON.parse(p.savedBy || '[]'),
-    reactions: p.reactions ? (() => { try { return JSON.parse(p.reactions); } catch { return {}; } })() : {},
-    comments: commentsByPost[p.id] || [],
-    eventData: p.eventData ? JSON.parse(p.eventData) : undefined,
-    iSawYouData: p.iSawYouData ? JSON.parse(p.iSawYouData) : undefined,
-  })));
+  return NextResponse.json(posts.map((p: any) => {
+    const realOwner = p.ownerId || p.authorId || null;
+    const isAnon = !!p.isAnonymous;
+    // For anonymous posts, only the owner themselves may see ownerId (so they keep
+    // their manage/delete controls). Everyone else gets null — the real author is
+    // never exposed. Non-anonymous posts already have a public authorId, no leak.
+    const ownerId = isAnon ? (viewerId && viewerId === realOwner ? realOwner : null) : realOwner;
+    return {
+      ...p,
+      isAnonymous: isAnon,
+      // For anonymous posts, authorId is already null in the DB; never fall back to the real owner here.
+      authorId: isAnon ? null : (p.authorId || null),
+      ownerId,
+      editedAt: p.editedAt || null,
+      images: JSON.parse(p.images || '[]'),
+      likedBy: JSON.parse(p.likedBy || '[]'),
+      savedBy: JSON.parse(p.savedBy || '[]'),
+      reactions: p.reactions ? (() => { try { return JSON.parse(p.reactions); } catch { return {}; } })() : {},
+      comments: commentsByPost[p.id] || [],
+      eventData: p.eventData ? JSON.parse(p.eventData) : undefined,
+      iSawYouData: p.iSawYouData ? JSON.parse(p.iSawYouData) : undefined,
+    };
+  }));
 }
 
 // POST /api/posts — create a new post AS the authenticated user

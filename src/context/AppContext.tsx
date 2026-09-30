@@ -141,23 +141,78 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (currentUser.id) loadFromApi();
   }, [currentUser.id]);
 
-  // Realtime polling — refresh notifications, requests, and conversations every 4s
+  // Realtime polling — split into fast (user-scoped) and slow (global) channels,
+  // paused when the tab is hidden or the device is offline to avoid burning
+  // serverless invocations / bandwidth. On regaining focus we refresh immediately.
   useEffect(() => {
     if (!currentUser.id) return;
-    // Poll every 2s for a near real-time feel across notifications, messages, requests, stories, games, posts.
-    const interval = setInterval(() => { pollRealtime(); }, 2000);
-    return () => clearInterval(interval);
+
+    const FAST_MS = 10000;   // notifications / requests / messages
+    const SLOW_EVERY = 4;    // run the slow channel every 4th fast tick (~40s)
+    const HEARTBEAT_EVERY = 4; // heartbeat every ~40s
+    let tick = 0;
+
+    const canPoll = () =>
+      (typeof document === 'undefined' || document.visibilityState === 'visible') &&
+      (typeof navigator === 'undefined' || navigator.onLine !== false);
+
+    const run = () => {
+      if (!canPoll()) return;
+      pollFast();
+      if (tick % SLOW_EVERY === 0) pollSlow();
+      if (tick % HEARTBEAT_EVERY === 0) fetch('/api/heartbeat', { method: 'POST' }).catch(() => {});
+      tick++;
+    };
+
+    const interval = setInterval(run, FAST_MS);
+
+    // Refresh the moment the user returns to the tab / comes back online.
+    const onFocus = () => { if (canPoll()) { tick = 0; pollFast(); pollSlow(); fetch('/api/heartbeat', { method: 'POST' }).catch(() => {}); } };
+    document.addEventListener('visibilitychange', onFocus);
+    window.addEventListener('online', onFocus);
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', onFocus);
+      window.removeEventListener('online', onFocus);
+    };
   }, [currentUser.id]);
 
-  const pollRealtime = async () => {
+  // FAST channel — user-scoped, needs to feel near-realtime.
+  const pollFast = async () => {
     if (!currentUser.id) return;
     try {
-      // Heartbeat so others see us as online (fire-and-forget).
-      fetch('/api/heartbeat', { method: 'POST' }).catch(() => {});
-      const [notifsRes, reqsRes, convsRes, storiesRes, gamesRes, postsRes, usersRes] = await Promise.all([
+      const [notifsRes, reqsRes, convsRes] = await Promise.all([
         fetch(`/api/notifications?userId=${currentUser.id}`),
         fetch(`/api/requests?userId=${currentUser.id}`),
         fetch(`/api/messages?userId=${currentUser.id}`),
+      ]);
+      if (notifsRes.ok) {
+        const fresh = await notifsRes.json();
+        setNotifications(prev => {
+          // Preserve locally-read state while the server catches up.
+          const readIds = new Set(prev.filter((n: Notification) => n.read).map((n: Notification) => n.id));
+          return fresh.map((n: Notification) => readIds.has(n.id) ? { ...n, read: true } : n);
+        });
+      }
+      if (reqsRes.ok) setConnectionRequests(await reqsRes.json());
+      if (convsRes.ok) {
+        const fresh: Conversation[] = normalizeConversations(await convsRes.json());
+        setConversations(prev => {
+          // Merge: prefer server data but keep any optimistic (temp) conversations not yet on server.
+          const serverIds = new Set(fresh.map(c => c.id));
+          const localOnly = prev.filter(c => !serverIds.has(c.id) && c.id.startsWith('conv') && !c.id.startsWith('conv_'));
+          return [...fresh, ...localOnly];
+        });
+      }
+    } catch { /* ignore poll errors */ }
+  };
+
+  // SLOW channel — global, heavier payloads that don't need 10s freshness.
+  const pollSlow = async () => {
+    if (!currentUser.id) return;
+    try {
+      const [storiesRes, gamesRes, postsRes, usersRes] = await Promise.all([
         fetch('/api/stories'),
         fetch('/api/games'),
         fetch('/api/posts'),
@@ -167,24 +222,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
       if (gamesRes.ok) { const g = await gamesRes.json(); if (Array.isArray(g)) setGames(g); }
       if (postsRes.ok) { const p = await postsRes.json(); if (Array.isArray(p)) setPosts(p); }
       if (usersRes.ok) { const u = await usersRes.json(); if (Array.isArray(u)) setUsers(u.map((x: any) => ({ ...EMPTY_USER, ...x }))); }
-      if (notifsRes.ok) {
-        const fresh = await notifsRes.json();
-        setNotifications(prev => {
-          // Preserve locally-read state for notifications the server still marks unread lag
-          const readIds = new Set(prev.filter((n: Notification) => n.read).map((n: Notification) => n.id));
-          return fresh.map((n: Notification) => readIds.has(n.id) ? { ...n, read: true } : n);
-        });
-      }
-      if (reqsRes.ok) setConnectionRequests(await reqsRes.json());
-      if (convsRes.ok) {
-        const fresh: Conversation[] = normalizeConversations(await convsRes.json());
-        setConversations(prev => {
-          // Merge: prefer server data but keep any optimistic (temp) conversations not yet on server
-          const serverIds = new Set(fresh.map(c => c.id));
-          const localOnly = prev.filter(c => !serverIds.has(c.id) && c.id.startsWith('conv') && !c.id.startsWith('conv_'));
-          return [...fresh, ...localOnly];
-        });
-      }
     } catch { /* ignore poll errors */ }
   };
 

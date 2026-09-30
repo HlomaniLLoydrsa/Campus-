@@ -553,6 +553,18 @@ async function initializeDb() {
     CREATE INDEX IF NOT EXISTS idx_pl_sess_user ON planner_sessions(userId);
     CREATE INDEX IF NOT EXISTS idx_pl_sess_date ON planner_sessions(date);
     CREATE INDEX IF NOT EXISTS idx_pl_sess_task ON planner_sessions(taskId);
+
+    -- Core social tables: indexes on hot query columns hit by the realtime polls.
+    CREATE INDEX IF NOT EXISTS idx_msg_conv ON messages(conversationId);
+    CREATE INDEX IF NOT EXISTS idx_msg_conv_created ON messages(conversationId, createdAt);
+    CREATE INDEX IF NOT EXISTS idx_notif_user ON notifications(userId);
+    CREATE INDEX IF NOT EXISTS idx_conn_user ON connections(userId);
+    CREATE INDEX IF NOT EXISTS idx_conn_connected ON connections(connectedUserId);
+    CREATE INDEX IF NOT EXISTS idx_creq_from ON connection_requests(fromUserId);
+    CREATE INDEX IF NOT EXISTS idx_creq_to ON connection_requests(toUserId);
+    CREATE INDEX IF NOT EXISTS idx_posts_created ON posts(createdAt);
+    CREATE INDEX IF NOT EXISTS idx_comments_post ON comments(postId);
+    CREATE INDEX IF NOT EXISTS idx_stories_expires ON stories(expiresAt);
   `);
 
   // Safe additive migrations for databases created before newer columns existed.
