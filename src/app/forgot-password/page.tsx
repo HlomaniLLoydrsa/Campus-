@@ -61,7 +61,7 @@ export default function ForgotPasswordPage() {
             {error && <div className="p-3 bg-red-50 border border-red-100 rounded-xl text-sm text-red-700">{error}</div>}
             <div>
               <label className="text-sm font-medium text-gray-700 block mb-1">Email</label>
-              <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@university.ac.za" className="input-field" autoComplete="email" />
+              <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="@gmail.com" className="input-field" autoComplete="email" />
             </div>
             <button type="submit" disabled={loading} className="btn-primary w-full py-3 disabled:opacity-50">
               {loading ? 'Sending...' : 'Send reset link'}

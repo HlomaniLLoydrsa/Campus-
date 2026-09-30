@@ -11,6 +11,7 @@ export default function OnboardingPage() {
   const { user, isLoading } = useAuth();
   const router = useRouter();
   const [form, setForm] = useState({ age: '', gender: '', university: '', course: '', faculty: '', yearOfStudy: 1 });
+  const [prefilled, setPrefilled] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
@@ -20,6 +21,21 @@ export default function OnboardingPage() {
     if (!user) { router.replace('/welcome'); return; }
     if (user.onboarded) { router.replace('/'); }
   }, [user, isLoading, router]);
+
+  // Pre-fill course/faculty/year (and university if set) from what the user already
+  // entered at registration, so they don't re-type. Only fields left blank need input.
+  useEffect(() => {
+    if (user && !prefilled) {
+      setForm(p => ({
+        ...p,
+        course: p.course || user.course || '',
+        faculty: p.faculty || user.faculty || '',
+        yearOfStudy: user.yearOfStudy || p.yearOfStudy || 1,
+        university: p.university || user.university || '',
+      }));
+      setPrefilled(true);
+    }
+  }, [user, prefilled]);
 
   const finish = async (payload: Record<string, unknown>) => {
     if (!user) return;
@@ -53,8 +69,15 @@ export default function OnboardingPage() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    // Onboarding is required — validate the key details before continuing.
+    const age = form.age ? parseInt(form.age, 10) : NaN;
+    if (!form.age || !Number.isFinite(age) || age < 13 || age > 100) { setError('Please enter a valid age (13–100).'); return; }
+    if (!form.gender) { setError('Please select your gender.'); return; }
+    if (!form.university.trim()) { setError('Please enter your university.'); return; }
+    if (!form.course.trim()) { setError('Please enter your course.'); return; }
+    if (!form.faculty.trim()) { setError('Please enter your faculty.'); return; }
     finish({
-      age: form.age ? parseInt(form.age, 10) : null,
+      age,
       gender: form.gender.trim(),
       university: form.university.trim(),
       course: form.course.trim(),
@@ -62,9 +85,6 @@ export default function OnboardingPage() {
       yearOfStudy: Number(form.yearOfStudy) || 1,
     });
   };
-
-  // Skip still marks onboarding complete so the quiz doesn't reappear.
-  const handleSkip = () => finish({});
 
   if (isLoading || !user) return null;
 
@@ -120,9 +140,6 @@ export default function OnboardingPage() {
 
           <button type="submit" disabled={saving} className="btn-primary w-full py-3 disabled:opacity-50">
             {saving ? 'Saving…' : 'Continue'}
-          </button>
-          <button type="button" onClick={handleSkip} disabled={saving} className="w-full text-sm text-gray-400 hover:text-gray-600 disabled:opacity-50">
-            Skip for now
           </button>
         </form>
       </div>

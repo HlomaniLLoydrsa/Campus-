@@ -10,8 +10,13 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
 
   useEffect(() => {
-    if (!isLoading && !user) {
+    if (isLoading) return;
+    if (!user) {
       router.replace('/welcome');
+    } else if (user.onboarded === false) {
+      // Onboarding is required — signed-in users who haven't completed it are
+      // sent to the quiz before they can use the app.
+      router.replace('/onboarding');
     }
   }, [user, isLoading, router]);
 

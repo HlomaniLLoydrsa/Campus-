@@ -235,7 +235,7 @@ function StoryCreateModal({ onClose, onCreate }: { onClose: () => void; onCreate
   };
 
   return (
-    <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 bg-black/60 z-[60] flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl w-full max-w-sm p-5 max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-3">
           <h3 className="font-bold text-lg">Create Story</h3>
@@ -305,7 +305,9 @@ function StoryViewer({ stories, user, onClose }: { stories: Story[]; user: any; 
   };
 
   return (
-    <div className="fixed inset-0 bg-black z-50 flex items-center justify-center">
+    // z-[60] so this fullscreen viewer sits ABOVE the bottom nav (z-50) on mobile —
+    // otherwise the nav covers the story's footer controls.
+    <div className="fixed inset-0 bg-black z-[60] flex items-center justify-center">
       {/* Progress bars */}
       <div className="absolute top-3 left-3 right-3 flex gap-1 z-10">
         {stories.map((_, i) => (
@@ -339,8 +341,9 @@ function StoryViewer({ stories, user, onClose }: { stories: Story[]; user: any; 
       {index > 0 && <button onClick={prev} className="absolute left-2 top-1/2 -translate-y-1/2 text-white/70 bg-black/30 rounded-full p-1 z-10"><ChevronLeft size={20} /></button>}
       {index < stories.length - 1 && <button onClick={next} className="absolute right-2 top-1/2 -translate-y-1/2 text-white/70 bg-black/30 rounded-full p-1 z-10"><ChevronRight size={20} /></button>}
 
-      {/* Footer: owner sees viewers; friends can comment */}
-      <div className="absolute bottom-0 left-0 right-0 p-4 z-10">
+      {/* Footer: owner sees viewers; friends can comment.
+          Extra bottom padding clears the phone's home indicator / safe area. */}
+      <div className="absolute bottom-0 left-0 right-0 p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] z-10">
         {isOwner ? (
           <button onClick={() => setShowViewers(v => !v)} className="flex items-center gap-2 text-white/90 text-sm bg-black/40 rounded-full px-4 py-2">
             <Eye size={16} /> {viewers.length} {viewers.length === 1 ? 'view' : 'views'}

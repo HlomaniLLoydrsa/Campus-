@@ -42,6 +42,18 @@ export default function SettingsPage() {
               </div>
               <Link href="/profile" className="btn-secondary text-sm flex items-center gap-1"><Edit2 size={14} /> Edit</Link>
             </div>
+
+            {/* Profile details from onboarding — only show fields that are filled in. */}
+            {(currentUser.university || currentUser.course || currentUser.faculty || currentUser.age || currentUser.gender || currentUser.yearOfStudy > 0) && (
+              <div className="mt-4 pt-4 border-t border-gray-100 grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+                {currentUser.university && <Detail label="University" value={currentUser.university} />}
+                {currentUser.course && <Detail label="Course" value={currentUser.course} />}
+                {currentUser.faculty && <Detail label="Faculty" value={currentUser.faculty} />}
+                {currentUser.yearOfStudy > 0 && <Detail label="Year of study" value={`Year ${currentUser.yearOfStudy}`} />}
+                {currentUser.age ? <Detail label="Age" value={`${currentUser.age}`} /> : null}
+                {currentUser.gender && <Detail label="Gender" value={currentUser.gender} />}
+              </div>
+            )}
           </div>
 
           <div className="space-y-2">
@@ -75,6 +87,15 @@ export default function SettingsPage() {
         </div>
       </main>
       <BottomNav />
+    </div>
+  );
+}
+
+function Detail({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="min-w-0">
+      <p className="text-[11px] uppercase tracking-wide text-gray-400">{label}</p>
+      <p className="font-medium text-gray-700 truncate">{value}</p>
     </div>
   );
 }

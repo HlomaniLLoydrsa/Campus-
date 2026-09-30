@@ -2,7 +2,7 @@
  * IMPORTANT: never cache API responses or any private/authenticated data.
  * API calls always go to the network so one user never sees another user's data.
  */
-const CACHE = 'vybe-static-v1';
+const CACHE = 'vybe-static-v2';
 const OFFLINE_URL = '/offline.html';
 
 // Static assets safe to precache (the shell + icons + offline page).
@@ -46,7 +46,7 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Static assets (Next build output, icons, images): cache-first, then network.
+  // Static assets (Next build output, icons, images).
   const isStatic =
     url.pathname.startsWith('/_next/static/') ||
     url.pathname.startsWith('/icons/') ||
@@ -54,18 +54,17 @@ self.addEventListener('fetch', (event) => {
     /\.(?:js|css|png|jpg|jpeg|svg|webp|gif|woff2?|ico)$/.test(url.pathname);
 
   if (isStatic) {
+    // NETWORK-FIRST: always try to fetch the freshest asset, fall back to cache
+    // only when offline. Next.js fingerprints its build files, so serving a
+    // cached copy first (the old strategy) caused stale UI that never updated.
     event.respondWith(
-      caches.match(req).then((cached) => {
-        if (cached) return cached;
-        return fetch(req).then((res) => {
-          // Only cache successful, basic (same-origin) responses.
-          if (res && res.status === 200 && res.type === 'basic') {
-            const copy = res.clone();
-            caches.open(CACHE).then((cache) => cache.put(req, copy));
-          }
-          return res;
-        }).catch(() => cached);
-      })
+      fetch(req).then((res) => {
+        if (res && res.status === 200 && res.type === 'basic') {
+          const copy = res.clone();
+          caches.open(CACHE).then((cache) => cache.put(req, copy));
+        }
+        return res;
+      }).catch(() => caches.match(req))
     );
   }
 });
