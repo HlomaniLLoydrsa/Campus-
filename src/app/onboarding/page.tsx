@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
 import Logo from '@/components/Logo';
+import UniversityPicker from '@/components/UniversityPicker';
 
 const GENDERS = ['Female', 'Male', 'Non-binary', 'Prefer not to say'];
 
@@ -116,7 +117,7 @@ export default function OnboardingPage() {
 
           <div>
             <label className="text-sm font-medium text-gray-700 block mb-1">University</label>
-            <input type="text" value={form.university} onChange={(e) => setForm(p => ({ ...p, university: e.target.value }))} placeholder="e.g. Nelson Mandela University" className="input-field" />
+            <UniversityPicker value={form.university} onChange={(v) => setForm(p => ({ ...p, university: v }))} />
           </div>
 
           <div className="grid grid-cols-2 gap-3">
