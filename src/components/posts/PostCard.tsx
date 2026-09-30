@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import Link from 'next/link';
-import { Heart, MessageCircle, Share2, Bookmark, MoreHorizontal, Flag, Send, Trash2, X, Edit2 } from 'lucide-react';
+import { Heart, MessageCircle, Share2, Bookmark, MoreHorizontal, Flag, Send, Trash2, X, Edit2, Smile } from 'lucide-react';
 import { Post } from '@/types';
 import { useApp } from '@/context/AppContext';
 import { useFeedback } from '@/context/FeedbackContext';
@@ -14,9 +14,13 @@ interface Props {
   post: Post;
 }
 
+const REACTION_EMOJIS = ['❤️', '😂', '👍', '😮', '😢', '🙏'];
+
 export default function PostCard({ post }: Props) {
-  const { currentUser, likePost, savePost, addComment, getUserById, sharePost, editPost, removePostImage, deletePost, connections, getOrCreateDirectConversation, sendMessage } = useApp();
+  const { currentUser, likePost, reactToPost, savePost, addComment, getUserById, sharePost, editPost, removePostImage, deletePost, connections, getOrCreateDirectConversation, sendMessage } = useApp();
   const { confirm, toast } = useFeedback();
+  const [showReactions, setShowReactions] = useState(false);
+  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [showComments, setShowComments] = useState(false);
   const [commentText, setCommentText] = useState('');
   const [replyTo, setReplyTo] = useState<string | null>(null);
@@ -39,6 +43,16 @@ export default function PostCard({ post }: Props) {
   // The real owner (works even for anonymous posts) — used to show manage/delete controls.
   const isOwnPost = (post.ownerId || post.authorId) === currentUser.id && !!currentUser.id;
   const postStyle = getPostTypeStyle(post.type);
+
+  const reactionEntries = Object.entries(post.reactions || {}).filter(([, ids]) => (ids as string[]).length > 0);
+
+  // Press-and-hold (mobile) or click (desktop) opens the emoji reaction bar.
+  const startLongPress = () => {
+    if (longPressTimer.current) clearTimeout(longPressTimer.current);
+    longPressTimer.current = setTimeout(() => setShowReactions(true), 450);
+  };
+  const cancelLongPress = () => { if (longPressTimer.current) { clearTimeout(longPressTimer.current); longPressTimer.current = null; } };
+  const handleReact = (emoji: string) => { reactToPost(post.id, emoji); setShowReactions(false); };
 
   const handleComment = () => {
     if (commentText.trim()) {
@@ -177,7 +191,43 @@ export default function PostCard({ post }: Props) {
           </div>
         </div>
       ) : (
-        post.content && <p className="text-gray-800 text-sm leading-relaxed mb-3 whitespace-pre-wrap">{post.content}</p>
+        post.content && (
+          <div
+            className="relative mb-3 select-none"
+            onTouchStart={startLongPress}
+            onTouchEnd={cancelLongPress}
+            onTouchMove={cancelLongPress}
+            onContextMenu={(e) => { e.preventDefault(); setShowReactions(true); }}
+          >
+            <p className="text-gray-800 text-sm leading-relaxed whitespace-pre-wrap">{post.content}</p>
+            {/* Emoji reaction bar (opens on press-and-hold / right-click / the smile button) */}
+            {showReactions && (
+              <>
+                <div className="fixed inset-0 z-10" onClick={() => setShowReactions(false)} />
+                <div className="absolute -top-2 left-0 z-20 flex items-center gap-1 bg-white shadow-lg border border-gray-100 rounded-full px-2 py-1.5">
+                  {REACTION_EMOJIS.map(e => (
+                    <button key={e} onClick={() => handleReact(e)} className="text-xl hover:scale-125 transition-transform leading-none">{e}</button>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+        )
+      )}
+
+      {/* Reaction chips */}
+      {reactionEntries.length > 0 && (
+        <div className="flex flex-wrap gap-1.5 mb-3">
+          {reactionEntries.map(([emoji, ids]) => {
+            const mine = (ids as string[]).includes(currentUser.id);
+            return (
+              <button key={emoji} onClick={() => reactToPost(post.id, emoji)} className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-xs border transition-colors ${mine ? 'bg-campus-primary/10 border-campus-primary/30 text-campus-primary font-medium' : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100'}`}>
+                <span className="leading-none">{emoji}</span>
+                <span>{(ids as string[]).length}</span>
+              </button>
+            );
+          })}
+        </div>
       )}
 
       {/* Images — Facebook-style mosaic */}
@@ -231,6 +281,21 @@ export default function PostCard({ post }: Props) {
             <Share2 size={18} />
             <span className="text-sm font-medium">{post.shares}</span>
           </button>
+          <div className="relative">
+            <button onClick={() => setShowReactions(v => !v)} aria-label="React" title="React" className="flex items-center px-3 py-1.5 rounded-lg text-gray-500 hover:bg-gray-50 transition-all">
+              <Smile size={18} />
+            </button>
+            {showReactions && (
+              <>
+                <div className="fixed inset-0 z-10" onClick={() => setShowReactions(false)} />
+                <div className="absolute bottom-full left-0 mb-1 z-20 flex items-center gap-1 bg-white shadow-lg border border-gray-100 rounded-full px-2 py-1.5">
+                  {REACTION_EMOJIS.map(e => (
+                    <button key={e} onClick={() => handleReact(e)} className="text-xl hover:scale-125 transition-transform leading-none">{e}</button>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
         </div>
         <button
           onClick={() => savePost(post.id)}

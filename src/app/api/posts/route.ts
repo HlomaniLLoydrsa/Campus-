@@ -23,6 +23,7 @@ export async function GET() {
     images: JSON.parse(p.images || '[]'),
     likedBy: JSON.parse(p.likedBy || '[]'),
     savedBy: JSON.parse(p.savedBy || '[]'),
+    reactions: p.reactions ? (() => { try { return JSON.parse(p.reactions); } catch { return {}; } })() : {},
     comments: commentsByPost[p.id] || [],
     eventData: p.eventData ? JSON.parse(p.eventData) : undefined,
     iSawYouData: p.iSawYouData ? JSON.parse(p.iSawYouData) : undefined,

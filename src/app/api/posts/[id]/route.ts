@@ -47,6 +47,19 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     return NextResponse.json({ likes: newLikedBy.length, likedBy: newLikedBy });
   }
 
+  // Toggle an emoji reaction on a post (any signed-in user).
+  if (action === 'react') {
+    const emoji = (body.emoji || '').toString();
+    if (!emoji || emoji.length > 8) return NextResponse.json({ error: 'emoji required' }, { status: 400 });
+    let reactions: Record<string, string[]> = {};
+    try { reactions = post.reactions ? JSON.parse(post.reactions) : {}; } catch { reactions = {}; }
+    const current = new Set(reactions[emoji] || []);
+    if (current.has(userId)) current.delete(userId); else current.add(userId);
+    if (current.size === 0) delete reactions[emoji]; else reactions[emoji] = Array.from(current);
+    await db.prepare('UPDATE posts SET reactions = ? WHERE id = ?').run(JSON.stringify(reactions), id);
+    return NextResponse.json({ success: true, reactions });
+  }
+
   if (action === 'save') {
     const savedBy = JSON.parse(post.savedBy || '[]');
     const isSaved = savedBy.includes(userId);

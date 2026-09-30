@@ -97,6 +97,8 @@ export interface Post {
   shares: number;
   savedBy: string[];
   reports: number;
+  /** Emoji reactions: map of emoji -> array of userIds who reacted. */
+  reactions?: Record<string, string[]>;
   createdAt: string;
   updatedAt?: string;
   editedAt?: string | null;
@@ -163,6 +165,12 @@ export interface Message {
   image?: string;
   timestamp: string;
   read: boolean;
+  /** Emoji reactions: map of emoji -> array of userIds who reacted with it. */
+  reactions?: Record<string, string[]>;
+  /** Id of the message this one is replying to (if any). */
+  replyToId?: string | null;
+  /** Small preview of the replied-to message, resolved by the server. */
+  replyTo?: { id: string; senderId: string; content: string } | null;
 }
 
 export interface Conversation {

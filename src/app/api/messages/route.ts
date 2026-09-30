@@ -21,9 +21,23 @@ export async function GET() {
   // Get messages for each conversation
   const result = [];
   for (const conv of userConversations) {
-    const messages = await db.prepare('SELECT * FROM messages WHERE conversationId = ? ORDER BY createdAt ASC').all(conv.id) as any[];
+    const rows = await db.prepare('SELECT * FROM messages WHERE conversationId = ? ORDER BY createdAt ASC').all(conv.id) as any[];
+    // Index by id so replies can resolve a small preview of the message they reply to.
+    const byId: Record<string, any> = {};
+    for (const r of rows) byId[r.id] = r;
+
+    const messages = rows.map(m => {
+      let reactions: Record<string, string[]> = {};
+      try { reactions = m.reactions ? JSON.parse(m.reactions) : {}; } catch { reactions = {}; }
+      let replyTo: { id: string; senderId: string; content: string } | undefined;
+      if (m.replyToId && byId[m.replyToId]) {
+        const p = byId[m.replyToId];
+        replyTo = { id: p.id, senderId: p.senderId, content: (p.content || '').slice(0, 120) };
+      }
+      return { ...m, read: !!m.read, reactions, replyTo };
+    });
     const lastMessage = messages[messages.length - 1] || null;
-    const unreadCount = messages.filter(m => !m.read && m.senderId !== userId).length;
+    const unreadCount = rows.filter(m => !m.read && m.senderId !== userId).length;
 
     result.push({
       ...conv,
@@ -32,8 +46,8 @@ export async function GET() {
       image: conv.image || undefined,
       description: conv.description || undefined,
       privacy: conv.privacy || 'private',
-      messages: messages.map(m => ({ ...m, read: !!m.read })),
-      lastMessage: lastMessage ? { ...lastMessage, read: !!lastMessage.read } : null,
+      messages,
+      lastMessage: lastMessage ? { ...lastMessage } : null,
       unreadCount,
     });
   }
@@ -48,7 +62,7 @@ export async function POST(request: Request) {
   const senderId = auth;
 
   const body = await request.json();
-  const { conversationId, content } = body;
+  const { conversationId, content, replyToId } = body;
 
   if (!conversationId || !content) {
     return NextResponse.json({ error: 'conversationId and content required' }, { status: 400 });
@@ -64,6 +78,13 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Not authorized' }, { status: 403 });
   }
 
+  // If replying, the referenced message must exist in THIS conversation (else drop it).
+  let validReplyTo: string | null = null;
+  if (replyToId) {
+    const parent = await db.prepare('SELECT id, conversationId FROM messages WHERE id = ?').get(replyToId) as any;
+    if (parent && parent.conversationId === conversationId) validReplyTo = parent.id;
+  }
+
   // Messaging is allowed to any participant of an EXISTING conversation. Direct conversations
   // between non-friends are only ever created by explicit server-side flows (accepted Lost & Found
   // claim, marketplace/service enquiry, wingman match, or a normal connection), so membership in
@@ -73,27 +94,53 @@ export async function POST(request: Request) {
 
   const id = `m_${crypto.randomUUID().slice(0, 8)}`;
   const createdAt = new Date().toISOString();
-  await db.prepare('INSERT INTO messages (id, conversationId, senderId, content, read, createdAt) VALUES (?, ?, ?, ?, 0, ?)').run(id, conversationId, senderId, content, createdAt);
+  await db.prepare('INSERT INTO messages (id, conversationId, senderId, content, read, replyToId, createdAt) VALUES (?, ?, ?, ?, 0, ?, ?)').run(id, conversationId, senderId, content, validReplyTo, createdAt);
 
   // Messages (direct AND group) intentionally do NOT create notifications.
   // Unread messages are surfaced only via the message icon badge (conversation
   // unreadCount). Group *membership* events (added to a group, made an admin) DO
   // create notifications — those live in the conversations routes, not here.
 
-  return NextResponse.json({ id, conversationId, senderId, content, read: false, createdAt }, { status: 201 });
+  return NextResponse.json({ id, conversationId, senderId, content, read: false, replyToId: validReplyTo, createdAt }, { status: 201 });
 }
 
-// PATCH /api/messages — mark messages in a conversation as read for the authenticated user
+// PATCH /api/messages
+// action 'react' → toggle an emoji reaction on a message (member-gated)
+// otherwise (default) → mark a conversation's messages read for the authenticated user
 export async function PATCH(request: Request) {
   const auth = await requireUserId();
   if (auth instanceof NextResponse) return auth;
   const userId = auth;
 
   const body = await request.json();
+  const db = await getDb();
+
+  // ── Toggle an emoji reaction on a single message ──
+  if (body.action === 'react') {
+    const { messageId, emoji } = body;
+    if (!messageId || !emoji || typeof emoji !== 'string' || emoji.length > 8) {
+      return NextResponse.json({ error: 'messageId and emoji required' }, { status: 400 });
+    }
+    const msg = await db.prepare('SELECT id, conversationId, reactions FROM messages WHERE id = ?').get(messageId) as any;
+    if (!msg) return NextResponse.json({ error: 'Message not found' }, { status: 404 });
+    // Reactor must be a participant of the message's conversation.
+    const c = await db.prepare('SELECT participants FROM conversations WHERE id = ?').get(msg.conversationId) as any;
+    if (!c || !JSON.parse(c.participants || '[]').includes(userId)) {
+      return NextResponse.json({ error: 'Not authorized' }, { status: 403 });
+    }
+    let reactions: Record<string, string[]> = {};
+    try { reactions = msg.reactions ? JSON.parse(msg.reactions) : {}; } catch { reactions = {}; }
+    const current = new Set(reactions[emoji] || []);
+    if (current.has(userId)) current.delete(userId); else current.add(userId);
+    if (current.size === 0) delete reactions[emoji]; else reactions[emoji] = Array.from(current);
+    await db.prepare('UPDATE messages SET reactions = ? WHERE id = ?').run(JSON.stringify(reactions), messageId);
+    return NextResponse.json({ success: true, reactions });
+  }
+
+  // ── Mark a conversation's messages as read ──
   const { conversationId } = body;
   if (!conversationId) return NextResponse.json({ error: 'conversationId required' }, { status: 400 });
 
-  const db = await getDb();
   // Only a participant may mark a conversation read.
   const conv = await db.prepare('SELECT participants FROM conversations WHERE id = ?').get(conversationId) as any;
   if (!conv) return NextResponse.json({ error: 'Conversation not found' }, { status: 404 });

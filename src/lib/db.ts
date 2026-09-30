@@ -595,6 +595,12 @@ async function initializeDb() {
   await ensureColumn(c, 'conversations', 'privacy', "TEXT DEFAULT 'private'");
   // Shareable group invite code — anyone with the link can join the group.
   await ensureColumn(c, 'conversations', 'inviteCode', 'TEXT');
+  // Per-message emoji reactions (JSON map: emoji -> array of userIds) and
+  // reply-to (the id of the message this one is replying to).
+  await ensureColumn(c, 'messages', 'reactions', 'TEXT');
+  await ensureColumn(c, 'messages', 'replyToId', 'TEXT');
+  // Per-post emoji reactions (JSON map: emoji -> array of userIds).
+  await ensureColumn(c, 'posts', 'reactions', 'TEXT');
 }
 
 async function ensureColumn(c: Client, table: string, column: string, type: string) {

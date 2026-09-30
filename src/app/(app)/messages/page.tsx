@@ -6,7 +6,7 @@ import Sidebar from '@/components/layout/Sidebar';
 import BottomNav from '@/components/layout/BottomNav';
 import TopBar from '@/components/layout/TopBar';
 import { useApp } from '@/context/AppContext';
-import { Send, ArrowLeft, Users, UsersRound, Search, MessageCircle, Lock, X, Settings, Compass, Globe } from 'lucide-react';
+import { Send, ArrowLeft, Users, UsersRound, Search, MessageCircle, Lock, X, Settings, Compass, Globe, Smile, Reply } from 'lucide-react';
 import { formatTimeAgo } from '@/lib/utils';
 import Avatar from '@/components/Avatar';
 import CreateGroupModal from '@/components/messages/CreateGroupModal';
@@ -21,11 +21,12 @@ export default function MessagesPage() {
 }
 
 function MessagesContent() {
-  const { currentUser, conversations, sendMessage, getUserById, isConnected, markConversationRead, createGroup, groupAction, connections } = useApp();
+  const { currentUser, conversations, sendMessage, reactToMessage, getUserById, isConnected, markConversationRead, createGroup, groupAction, connections } = useApp();
   const searchParams = useSearchParams();
   const router = useRouter();
   const [selectedConv, setSelectedConv] = useState<string | null>(null);
   const [messageText, setMessageText] = useState('');
+  const [replyingTo, setReplyingTo] = useState<{ id: string; senderId: string; content: string } | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [showCreateGroup, setShowCreateGroup] = useState(false);
   const [showManageGroup, setShowManageGroup] = useState(false);
@@ -81,10 +82,14 @@ function MessagesContent() {
 
   const handleSend = () => {
     if (messageText.trim() && selectedConv) {
-      sendMessage(selectedConv, messageText.trim());
+      sendMessage(selectedConv, messageText.trim(), replyingTo?.id || null);
       setMessageText('');
+      setReplyingTo(null);
     }
   };
+
+  // Clear any in-progress reply when switching conversations.
+  useEffect(() => { setReplyingTo(null); }, [selectedConv]);
 
   const filteredConversations = conversations.filter(c => {
     const name = getConversationName(c);
@@ -199,60 +204,41 @@ function MessagesContent() {
                   {selectedConversation.messages.length === 0 && (
                     <div className="text-center py-8 text-gray-400"><MessageCircle size={24} className="mx-auto mb-2 opacity-50" /><p className="text-xs">No messages yet. Say hello!</p></div>
                   )}
-                  {selectedConversation.messages.map(msg => {
-                    const isOwn = msg.senderId === currentUser.id;
-                    const sender = getUserById(msg.senderId);
-                    return (
-                      <div key={msg.id} className={`flex ${isOwn ? 'justify-end' : 'justify-start'}`}>
-                        <div className={`flex items-end gap-2 max-w-[75%] ${isOwn ? 'flex-row-reverse' : ''}`}>
-                          {!isOwn && (
-                            <button onClick={() => sender && router.push(`/profile/${sender.id}`)} title="View profile" className="flex-shrink-0">
-                              <Avatar src={sender?.avatar} name={sender?.name} size={28} />
-                            </button>
-                          )}
-                          <div className={`px-4 py-2.5 rounded-2xl ${isOwn ? 'bg-campus-primary text-white rounded-br-md' : 'bg-gray-100 text-gray-800 rounded-bl-md'}`}>
-                            {!isOwn && selectedConversation.type !== 'direct' && <p className="text-[10px] font-semibold mb-0.5 opacity-70">{sender?.name}</p>}
-                            {(() => {
-                              const sharedMatch = msg.content.match(/^\[shared-post:([^\]]+)\]\s*([\s\S]*)$/);
-                              if (sharedMatch) {
-                                const [, postId, label] = sharedMatch;
-                                return (
-                                  <button
-                                    onClick={() => router.push(`/?post=${postId}`)}
-                                    className={`text-sm text-left underline decoration-dotted ${isOwn ? 'text-white' : 'text-campus-primary'}`}
-                                  >
-                                    {label || 'View shared post'}
-                                  </button>
-                                );
-                              }
-                              const gameMatch = msg.content.match(/^\[game:([^\]]+)\]\s*([\s\S]*)$/);
-                              if (gameMatch) {
-                                const [, gameId, label] = gameMatch;
-                                return (
-                                  <button
-                                    onClick={() => router.push(`/games?open=${gameId}`)}
-                                    className={`text-sm text-left underline decoration-dotted font-medium ${isOwn ? 'text-white' : 'text-campus-primary'}`}
-                                  >
-                                    {label || 'Open game'}
-                                  </button>
-                                );
-                              }
-                              return <p className="text-sm">{msg.content}</p>;
-                            })()}
-                            <p className={`text-[10px] mt-1 ${isOwn ? 'text-white/60' : 'text-gray-400'}`}>{formatTimeAgo(msg.timestamp)}</p>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
+                  {selectedConversation.messages.map(msg => (
+                    <MessageBubble
+                      key={msg.id}
+                      msg={msg}
+                      isOwn={msg.senderId === currentUser.id}
+                      isGroup={selectedConversation.type !== 'direct'}
+                      currentUserId={currentUser.id}
+                      sender={getUserById(msg.senderId)}
+                      getUserById={getUserById}
+                      onOpenProfile={(uid) => router.push(`/profile/${uid}`)}
+                      onOpenPost={(pid) => router.push(`/?post=${pid}`)}
+                      onOpenGame={(gid) => router.push(`/games?open=${gid}`)}
+                      onReact={(emoji) => reactToMessage(selectedConversation.id, msg.id, emoji)}
+                      onReply={() => setReplyingTo({ id: msg.id, senderId: msg.senderId, content: msg.content })}
+                      onJumpTo={(mid) => { const el = document.getElementById(`msg-${mid}`); if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); el.classList.add('ring-2', 'ring-campus-primary'); setTimeout(() => el.classList.remove('ring-2', 'ring-campus-primary'), 1500); } }}
+                    />
+                  ))}
                   <div ref={messagesEndRef} />
                 </div>
 
                 {/* Input - with connection check */}
                 {canSendInConversation(selectedConversation) ? (
                   <div className="p-4 border-t border-gray-100">
+                    {/* Reply preview banner */}
+                    {replyingTo && (
+                      <div className="flex items-center gap-2 mb-2 p-2 pl-3 bg-gray-50 border-l-2 border-campus-primary rounded-lg">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[11px] font-semibold text-campus-primary">Replying to {replyingTo.senderId === currentUser.id ? 'yourself' : (getUserById(replyingTo.senderId)?.name || 'someone')}</p>
+                          <p className="text-xs text-gray-500 truncate">{replyingTo.content}</p>
+                        </div>
+                        <button onClick={() => setReplyingTo(null)} aria-label="Cancel reply" className="p-1 rounded-lg hover:bg-gray-200 flex-shrink-0"><X size={15} className="text-gray-500" /></button>
+                      </div>
+                    )}
                     <div className="flex items-center gap-2">
-                      <input type="text" value={messageText} onChange={(e) => setMessageText(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleSend()} placeholder="Type a message..." className="input-field" />
+                      <input type="text" value={messageText} onChange={(e) => setMessageText(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleSend()} placeholder={replyingTo ? 'Type your reply…' : 'Type a message...'} className="input-field" />
                       <button onClick={handleSend} disabled={!messageText.trim()} className="btn-primary p-3 disabled:opacity-50"><Send size={18} /></button>
                     </div>
                   </div>
@@ -313,6 +299,107 @@ function MessagesContent() {
         )}
       </main>
       <BottomNav />
+    </div>
+  );
+}
+
+const REACTION_EMOJIS = ['❤️', '😂', '👍', '😮', '😢', '🙏'];
+
+// A single chat message bubble with reactions + reply (works for direct & group).
+function MessageBubble({ msg, isOwn, isGroup, currentUserId, sender, getUserById, onOpenProfile, onOpenPost, onOpenGame, onReact, onReply, onJumpTo }: {
+  msg: any;
+  isOwn: boolean;
+  isGroup: boolean;
+  currentUserId: string;
+  sender: any;
+  getUserById: (id: string) => any;
+  onOpenProfile: (uid: string) => void;
+  onOpenPost: (pid: string) => void;
+  onOpenGame: (gid: string) => void;
+  onReact: (emoji: string) => void;
+  onReply: () => void;
+  onJumpTo: (mid: string) => void;
+}) {
+  const [showActions, setShowActions] = useState(false);
+  const reactions: Record<string, string[]> = msg.reactions || {};
+  const reactionEntries = Object.entries(reactions).filter(([, ids]) => (ids as string[]).length > 0);
+
+  const renderContent = () => {
+    const sharedMatch = msg.content.match(/^\[shared-post:([^\]]+)\]\s*([\s\S]*)$/);
+    if (sharedMatch) {
+      const [, postId, label] = sharedMatch;
+      return <button onClick={() => onOpenPost(postId)} className={`text-sm text-left underline decoration-dotted ${isOwn ? 'text-white' : 'text-campus-primary'}`}>{label || 'View shared post'}</button>;
+    }
+    const gameMatch = msg.content.match(/^\[game:([^\]]+)\]\s*([\s\S]*)$/);
+    if (gameMatch) {
+      const [, gameId, label] = gameMatch;
+      return <button onClick={() => onOpenGame(gameId)} className={`text-sm text-left underline decoration-dotted font-medium ${isOwn ? 'text-white' : 'text-campus-primary'}`}>{label || 'Open game'}</button>;
+    }
+    return <p className="text-sm break-words">{msg.content}</p>;
+  };
+
+  return (
+    <div id={`msg-${msg.id}`} className={`flex rounded-xl transition-all ${isOwn ? 'justify-end' : 'justify-start'}`}>
+      <div className={`flex items-end gap-2 max-w-[80%] ${isOwn ? 'flex-row-reverse' : ''}`}>
+        {!isOwn && (
+          <button onClick={() => sender && onOpenProfile(sender.id)} title="View profile" className="flex-shrink-0">
+            <Avatar src={sender?.avatar} name={sender?.name} size={28} />
+          </button>
+        )}
+        <div className="relative">
+          {/* Hover/tap actions: react + reply */}
+          <div className={`absolute -top-3 ${isOwn ? 'left-0 -translate-x-full pr-1' : 'right-0 translate-x-full pl-1'} z-10`}>
+            {showActions && (
+              <div className="flex items-center gap-0.5 bg-white shadow-lg border border-gray-100 rounded-full px-1.5 py-1">
+                {REACTION_EMOJIS.map(e => (
+                  <button key={e} onClick={() => { onReact(e); setShowActions(false); }} className="text-base hover:scale-125 transition-transform leading-none">{e}</button>
+                ))}
+                <button onClick={() => { onReply(); setShowActions(false); }} aria-label="Reply" className="ml-0.5 p-1 rounded-full hover:bg-gray-100 text-gray-500"><Reply size={14} /></button>
+              </div>
+            )}
+          </div>
+
+          <div
+            onClick={() => setShowActions(v => !v)}
+            className={`px-4 py-2.5 rounded-2xl cursor-pointer ${isOwn ? 'bg-campus-primary text-white rounded-br-md' : 'bg-gray-100 text-gray-800 rounded-bl-md'}`}
+          >
+            {!isOwn && isGroup && <p className="text-[10px] font-semibold mb-0.5 opacity-70">{sender?.name}</p>}
+
+            {/* Quoted replied-to message */}
+            {msg.replyTo && (
+              <button
+                onClick={(ev) => { ev.stopPropagation(); onJumpTo(msg.replyTo.id); }}
+                className={`block w-full text-left mb-1.5 pl-2 border-l-2 rounded ${isOwn ? 'border-white/50 bg-white/10' : 'border-campus-primary/40 bg-black/5'} px-2 py-1`}
+              >
+                <p className={`text-[10px] font-semibold ${isOwn ? 'text-white/80' : 'text-campus-primary'}`}>{msg.replyTo.senderId === currentUserId ? 'You' : (getUserById(msg.replyTo.senderId)?.name || 'Someone')}</p>
+                <p className={`text-[11px] truncate ${isOwn ? 'text-white/70' : 'text-gray-500'}`}>{msg.replyTo.content}</p>
+              </button>
+            )}
+
+            {renderContent()}
+            <div className={`flex items-center gap-1.5 mt-1 ${isOwn ? 'justify-end' : ''}`}>
+              <p className={`text-[10px] ${isOwn ? 'text-white/60' : 'text-gray-400'}`}>{formatTimeAgo(msg.timestamp)}</p>
+            </div>
+          </div>
+
+          {/* Reaction chips */}
+          {reactionEntries.length > 0 && (
+            <div className={`flex flex-wrap gap-1 mt-1 ${isOwn ? 'justify-end' : 'justify-start'}`}>
+              {reactionEntries.map(([emoji, ids]) => {
+                const mine = (ids as string[]).includes(currentUserId);
+                return (
+                  <button key={emoji} onClick={() => onReact(emoji)} className={`flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[11px] border transition-colors ${mine ? 'bg-campus-primary/10 border-campus-primary/30' : 'bg-white border-gray-200 hover:bg-gray-50'}`}>
+                    <span className="leading-none">{emoji}</span>
+                    <span className={mine ? 'text-campus-primary font-medium' : 'text-gray-500'}>{(ids as string[]).length}</span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+        {/* Quick react/reply trigger on the opposite side */}
+        <button onClick={() => setShowActions(v => !v)} aria-label="Message actions" className="self-center p-1 rounded-full text-gray-300 hover:text-gray-500 hover:bg-gray-100 flex-shrink-0"><Smile size={15} /></button>
+      </div>
     </div>
   );
 }

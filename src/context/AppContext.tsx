@@ -1,7 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, ReactNode, useCallback, useEffect } from 'react';
-import { User, Post, Conversation, Notification, Game, SecretAdmirer, WingmanSuggestion, ConnectionRequest, ConnectionStatus, RequestType, WouldYouRatherData, NeverHaveIEverData, TwoTruthsOneLieData, Story } from '@/types';
+import { User, Post, Conversation, Message, Notification, Game, SecretAdmirer, WingmanSuggestion, ConnectionRequest, ConnectionStatus, RequestType, WouldYouRatherData, NeverHaveIEverData, TwoTruthsOneLieData, Story } from '@/types';
 import { useAuth } from '@/context/AuthContext';
 
 interface AppContextType {
@@ -10,6 +10,7 @@ interface AppContextType {
   posts: Post[];
   addPost: (post: Post) => void;
   likePost: (postId: string) => void;
+  reactToPost: (postId: string, emoji: string) => void;
   savePost: (postId: string) => void;
   addComment: (postId: string, content: string, parentId?: string) => void;
   connections: Record<string, string[]>;
@@ -24,7 +25,8 @@ interface AppContextType {
   getRequestForUser: (targetId: string) => ConnectionRequest | undefined;
   isConnected: (targetId: string) => boolean;
   conversations: Conversation[];
-  sendMessage: (conversationId: string, content: string) => void;
+  sendMessage: (conversationId: string, content: string, replyToId?: string | null) => void;
+  reactToMessage: (conversationId: string, messageId: string, emoji: string) => void;
   createConversation: (participantIds: string[], name?: string, type?: 'direct' | 'group') => string;
   createGroup: (opts: { name: string; description?: string; image?: string; privacy?: 'private' | 'discoverable'; memberIds: string[] }) => Promise<string | null>;
   groupAction: (groupId: string, body: Record<string, unknown>) => Promise<boolean>;
@@ -255,6 +257,19 @@ export function AppProvider({ children }: { children: ReactNode }) {
     fetch(`/api/posts/${postId}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'like', userId: currentUser.id }) }).catch(() => {});
   }, [currentUser.id]);
 
+  // Toggle an emoji reaction on a post (optimistic + server).
+  const reactToPost = useCallback((postId: string, emoji: string) => {
+    setPosts(prev => prev.map(p => {
+      if (p.id !== postId) return p;
+      const reactions = { ...(p.reactions || {}) };
+      const list = new Set(reactions[emoji] || []);
+      if (list.has(currentUser.id)) list.delete(currentUser.id); else list.add(currentUser.id);
+      if (list.size === 0) delete reactions[emoji]; else reactions[emoji] = Array.from(list);
+      return { ...p, reactions };
+    }));
+    fetch(`/api/posts/${postId}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'react', emoji }) }).catch(() => {});
+  }, [currentUser.id]);
+
   const savePost = useCallback((postId: string) => {
     setPosts(prev => prev.map(p => {
       if (p.id === postId) {
@@ -342,12 +357,40 @@ export function AppProvider({ children }: { children: ReactNode }) {
     return tempId;
   }, [conversations, currentUser.id, isConnected]);
 
-  const sendMessage = useCallback(async (conversationId: string, content: string) => {
+  const sendMessage = useCallback(async (conversationId: string, content: string, replyToId?: string | null) => {
     if (!content.trim()) return;
-    const msg = { id: `m${Date.now()}`, senderId: currentUser.id, content, timestamp: new Date().toISOString(), read: true };
+    // Resolve an optimistic reply preview from the message being replied to.
+    let replyTo: Message['replyTo'] | undefined;
+    if (replyToId) {
+      const conv = conversations.find(c => c.id === conversationId);
+      const parent = conv?.messages.find(m => m.id === replyToId);
+      if (parent) replyTo = { id: parent.id, senderId: parent.senderId, content: (parent.content || '').slice(0, 120) };
+    }
+    const msg: Message = { id: `m${Date.now()}`, senderId: currentUser.id, content, timestamp: new Date().toISOString(), read: true, reactions: {}, replyToId: replyToId || null, replyTo };
     setConversations(prev => prev.map(c => c.id === conversationId ? { ...c, messages: [...c.messages, msg], lastMessage: msg } : c));
     try {
-      await fetch('/api/messages', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ conversationId, senderId: currentUser.id, content }) });
+      await fetch('/api/messages', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ conversationId, senderId: currentUser.id, content, replyToId: replyToId || null }) });
+    } catch {}
+  }, [currentUser.id, conversations]);
+
+  // Toggle an emoji reaction on a message (optimistic + server).
+  const reactToMessage = useCallback(async (conversationId: string, messageId: string, emoji: string) => {
+    setConversations(prev => prev.map(c => {
+      if (c.id !== conversationId) return c;
+      return {
+        ...c,
+        messages: c.messages.map(m => {
+          if (m.id !== messageId) return m;
+          const reactions = { ...(m.reactions || {}) };
+          const list = new Set(reactions[emoji] || []);
+          if (list.has(currentUser.id)) list.delete(currentUser.id); else list.add(currentUser.id);
+          if (list.size === 0) delete reactions[emoji]; else reactions[emoji] = Array.from(list);
+          return { ...m, reactions };
+        }),
+      };
+    }));
+    try {
+      await fetch('/api/messages', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'react', messageId, emoji }) });
     } catch {}
   }, [currentUser.id]);
 
@@ -626,10 +669,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
   return (
     <AppContext.Provider value={{
       currentUser, isAuthenticated: !!authUser,
-      posts, addPost, likePost, savePost, addComment,
+      posts, addPost, likePost, reactToPost, savePost, addComment,
       connections, relationships, connectionRequests,
       sendRequest, cancelRequest, acceptRequest, rejectRequest, removeFriend, getConnectionStatus, getRequestForUser, isConnected,
-      conversations, sendMessage, createConversation, createGroup, groupAction, deleteGroup, getOrCreateDirectConversation, markConversationRead,
+      conversations, sendMessage, reactToMessage, createConversation, createGroup, groupAction, deleteGroup, getOrCreateDirectConversation, markConversationRead,
       notifications, unreadNotificationCount, markNotificationRead, markAllNotificationsRead, addNotification,
       games, createGame, deleteGame, voteWouldYouRather, voteNeverHaveIEver, guessTwoTruths, revealTwoTruths,
       secretAdmirers, sendSecretAdmirer, respondToAdmirer,
