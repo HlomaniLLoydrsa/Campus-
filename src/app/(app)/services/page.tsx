@@ -127,7 +127,7 @@ function ServicesContent() {
                 const provider = getUserById(s.providerId);
                 const meta = serviceCategoryMeta(s.category);
                 return (
-                  <Link key={s.id} href={`/services/${s.id}`} className="card p-4">
+                  <Link key={s.id} href={`/services/${s.id}`} className="card p-4 block">
                     <div className="flex items-start gap-3">
                       <div className="w-11 h-11 rounded-xl bg-campus-primary/10 flex items-center justify-center text-xl flex-shrink-0">{s.kind === 'tutor' ? '🎓' : meta.emoji}</div>
                       <div className="flex-1 min-w-0">
