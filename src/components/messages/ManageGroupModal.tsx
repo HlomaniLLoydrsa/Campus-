@@ -1,14 +1,14 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { X, Camera, Users, Lock, Globe, Trash2, UserPlus, LogOut, ShieldCheck, Shield, MoreVertical, Check } from 'lucide-react';
+import { X, Camera, Users, Lock, Globe, Trash2, UserPlus, LogOut, ShieldCheck, Shield, MoreVertical, Check, Link as LinkIcon } from 'lucide-react';
 import Avatar from '@/components/Avatar';
 import { resizeImage } from '@/lib/image';
 import { useApp } from '@/context/AppContext';
 import { useFeedback } from '@/context/FeedbackContext';
 
 interface Member { id: string; name: string; username: string; avatar: string; role: 'admin' | 'member' }
-interface GroupDetail { id: string; name: string; description: string; image: string; privacy: 'private' | 'discoverable'; participants: string[]; adminIds: string[]; members: Member[]; isAdmin: boolean }
+interface GroupDetail { id: string; name: string; description: string; image: string; privacy: 'private' | 'discoverable'; participants: string[]; adminIds: string[]; inviteCode: string; members: Member[]; isAdmin: boolean }
 
 export default function ManageGroupModal({ groupId, onClose, onLeftOrDeleted }: { groupId: string; onClose: () => void; onLeftOrDeleted: () => void }) {
   const { currentUser, connections, getUserById, groupAction, deleteGroup } = useApp();
@@ -25,6 +25,17 @@ export default function ManageGroupModal({ groupId, onClose, onLeftOrDeleted }: 
   const [imagePreview, setImagePreview] = useState('');
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [addSelected, setAddSelected] = useState<string[]>([]);
+  const [copied, setCopied] = useState(false);
+
+  const inviteLink = group?.inviteCode
+    ? `${typeof window !== 'undefined' ? window.location.origin : ''}/join-group?code=${group.inviteCode}`
+    : '';
+  const copyInvite = async () => {
+    if (!inviteLink) return;
+    try { await navigator.clipboard.writeText(inviteLink); } catch { /* clipboard may be blocked */ }
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1800);
+  };
 
   const load = useCallback(async () => {
     try {
@@ -138,7 +149,8 @@ export default function ManageGroupModal({ groupId, onClose, onLeftOrDeleted }: 
             <div className="flex gap-2 mb-4">
               <button onClick={() => setTab('info')} className={`px-3 py-1.5 rounded-xl text-xs font-medium ${tab === 'info' ? 'bg-campus-primary text-white' : 'bg-gray-100 text-gray-600'}`}>Info</button>
               <button onClick={() => setTab('members')} className={`px-3 py-1.5 rounded-xl text-xs font-medium ${tab === 'members' ? 'bg-campus-primary text-white' : 'bg-gray-100 text-gray-600'}`}>Members ({group.members.length})</button>
-              {isAdmin && <button onClick={() => setTab('add')} className={`px-3 py-1.5 rounded-xl text-xs font-medium ${tab === 'add' ? 'bg-campus-primary text-white' : 'bg-gray-100 text-gray-600'}`}>Add</button>}
+              {/* Any member can add their own friends. */}
+              <button onClick={() => setTab('add')} className={`px-3 py-1.5 rounded-xl text-xs font-medium ${tab === 'add' ? 'bg-campus-primary text-white' : 'bg-gray-100 text-gray-600'}`}>Add</button>
             </div>
 
             {/* INFO */}
@@ -204,9 +216,18 @@ export default function ManageGroupModal({ groupId, onClose, onLeftOrDeleted }: 
               </div>
             )}
 
-            {/* ADD MEMBERS (admin) */}
-            {tab === 'add' && isAdmin && (
+            {/* ADD MEMBERS (any member can add their own friends) + shareable invite link */}
+            {tab === 'add' && (
               <div>
+                {/* Invite link — anyone with it can join. */}
+                <div className="mb-4 p-3 bg-gray-50 rounded-xl">
+                  <p className="text-xs font-medium text-gray-600 mb-1 flex items-center gap-1"><LinkIcon size={13} /> Invite link</p>
+                  <p className="text-[11px] text-gray-500 mb-2">Anyone with this link can join the group.</p>
+                  <div className="flex items-center gap-2">
+                    <input readOnly value={inviteLink} onFocus={(e) => e.currentTarget.select()} className="flex-1 min-w-0 text-xs bg-white border border-gray-200 rounded-lg px-2 py-1.5 text-gray-600" />
+                    <button onClick={copyInvite} className="btn-secondary text-xs px-3 py-1.5 flex-shrink-0">{copied ? 'Copied!' : 'Copy'}</button>
+                  </div>
+                </div>
                 <p className="text-xs font-medium text-gray-600 mb-2">Add friends ({addSelected.length} selected)</p>
                 {addableFriends.length > 0 ? (
                   <div className="space-y-1 max-h-56 overflow-y-auto mb-4">

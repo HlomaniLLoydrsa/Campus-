@@ -593,6 +593,8 @@ async function initializeDb() {
   await ensureColumn(c, 'conversations', 'adminIds', 'TEXT');
   await ensureColumn(c, 'conversations', 'description', 'TEXT');
   await ensureColumn(c, 'conversations', 'privacy', "TEXT DEFAULT 'private'");
+  // Shareable group invite code — anyone with the link can join the group.
+  await ensureColumn(c, 'conversations', 'inviteCode', 'TEXT');
 }
 
 async function ensureColumn(c: Client, table: string, column: string, type: string) {

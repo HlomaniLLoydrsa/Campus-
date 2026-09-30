@@ -50,8 +50,10 @@ export async function POST(request: Request) {
   const priv = privacy === 'discoverable' ? 'discoverable' : 'private';
   const desc = (description || '').toString().trim().slice(0, 300);
   const id = `conv_${crypto.randomUUID().slice(0, 8)}`;
-  await db.prepare('INSERT INTO conversations (id, type, name, description, image, privacy, participants, adminIds) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
-    .run(id, 'group', cleanName, desc, (image || '').toString() || null, priv, JSON.stringify(parts), JSON.stringify(adminIds));
+  // A shareable invite code — anyone with the link can join, even for private groups.
+  const inviteCode = crypto.randomUUID().replace(/-/g, '').slice(0, 20);
+  await db.prepare('INSERT INTO conversations (id, type, name, description, image, privacy, participants, adminIds, inviteCode) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)')
+    .run(id, 'group', cleanName, desc, (image || '').toString() || null, priv, JSON.stringify(parts), JSON.stringify(adminIds), inviteCode);
 
   // Notify each added member (never the creator).
   for (const memberId of parts) {

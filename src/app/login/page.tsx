@@ -1,15 +1,23 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Eye, EyeOff } from 'lucide-react';
 import Logo from '@/components/Logo';
 
-export default function LoginPage() {
+// Only allow same-app relative paths as a post-login redirect (never an external URL).
+function safeNext(next: string | null): string {
+  if (next && next.startsWith('/') && !next.startsWith('//')) return next;
+  return '/';
+}
+
+function LoginContent() {
   const { user, isLoading, login } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const next = safeNext(searchParams.get('next'));
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -17,8 +25,8 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (!isLoading && user) router.replace('/');
-  }, [user, isLoading, router]);
+    if (!isLoading && user) router.replace(next);
+  }, [user, isLoading, router, next]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -28,7 +36,7 @@ export default function LoginPage() {
     const result = await login(email.trim(), password);
     setLoading(false);
     if (result.success) {
-      router.push('/');
+      router.push(next);
     } else {
       setError(result.error || 'Login failed');
     }
@@ -83,5 +91,13 @@ export default function LoginPage() {
         </p>
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={null}>
+      <LoginContent />
+    </Suspense>
   );
 }

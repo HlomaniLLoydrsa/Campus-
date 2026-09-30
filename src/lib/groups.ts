@@ -12,6 +12,7 @@ export interface GroupRow {
   privacy: string | null;
   participants: string[];
   adminIds: string[];
+  inviteCode: string | null;
   createdAt: string;
 }
 
@@ -34,6 +35,7 @@ export async function getGroup(id: string): Promise<GroupRow | null> {
     privacy: row.privacy ?? 'private',
     participants: parseJsonArray(row.participants),
     adminIds: parseJsonArray(row.adminIds),
+    inviteCode: row.inviteCode ?? null,
     createdAt: row.createdAt,
   };
 }

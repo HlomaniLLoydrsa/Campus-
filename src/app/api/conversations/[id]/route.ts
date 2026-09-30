@@ -32,6 +32,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     privacy: group.privacy,
     participants: group.participants,
     adminIds: group.adminIds,
+    inviteCode: group.inviteCode || '',
     members,
     isAdmin: isAdmin(group, userId),
   });
@@ -95,6 +96,21 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     return NextResponse.json({ success: true });
   }
 
+  // ── ADD MEMBERS (any member) — a member can add their OWN friends ──
+  if (action === 'addMembers') {
+    // Only real friends of the ACTING user can be added (prevents adding strangers/invalid ids).
+    const friendRows = await db.prepare('SELECT connectedUserId FROM connections WHERE userId = ?').all(userId) as any[];
+    const friendIds = new Set(friendRows.map(r => r.connectedUserId));
+    const requested = Array.isArray(body.userIds) ? body.userIds.filter((x: any) => typeof x === 'string') : [];
+    const toAdd = requested.filter((uid: string) => friendIds.has(uid) && !group.participants.includes(uid));
+    if (toAdd.length === 0) return NextResponse.json({ error: 'No valid members to add' }, { status: 400 });
+    const parts = Array.from(new Set([...group.participants, ...toAdd]));
+    await saveGroupMembership(id, parts, group.adminIds);
+    const who = await actorName(db, userId);
+    for (const uid of toAdd) await notify(db, uid, userId, `${who} added you to "${group.name}"`, id);
+    return NextResponse.json({ success: true, added: toAdd });
+  }
+
   // ── All remaining actions are ADMIN-ONLY ──
   if (!admin) return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
 
@@ -113,20 +129,6 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     values.push(id);
     await db.prepare(`UPDATE conversations SET ${fields.join(', ')} WHERE id = ?`).run(...values);
     return NextResponse.json({ success: true });
-  }
-
-  if (action === 'addMembers') {
-    // Only real friends of the ACTING admin can be added (prevents adding strangers/invalid ids).
-    const friendRows = await db.prepare('SELECT connectedUserId FROM connections WHERE userId = ?').all(userId) as any[];
-    const friendIds = new Set(friendRows.map(r => r.connectedUserId));
-    const requested = Array.isArray(body.userIds) ? body.userIds.filter((x: any) => typeof x === 'string') : [];
-    const toAdd = requested.filter((uid: string) => friendIds.has(uid) && !group.participants.includes(uid));
-    if (toAdd.length === 0) return NextResponse.json({ error: 'No valid members to add' }, { status: 400 });
-    const parts = Array.from(new Set([...group.participants, ...toAdd]));
-    await saveGroupMembership(id, parts, group.adminIds);
-    const who = await actorName(db, userId);
-    for (const uid of toAdd) await notify(db, uid, userId, `${who} added you to "${group.name}"`, id);
-    return NextResponse.json({ success: true, added: toAdd });
   }
 
   if (action === 'removeMember') {
