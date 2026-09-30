@@ -586,6 +586,13 @@ async function initializeDb() {
   await ensureColumn(c, 'users', 'university', 'TEXT');
   // Whether the user has completed the post-signup onboarding quiz (shows once).
   await ensureColumn(c, 'users', 'onboarded', 'INTEGER DEFAULT 0');
+  // Group chat fields on conversations (reused for type='group'):
+  // image (avatar url), adminIds (JSON array of admin user ids), description,
+  // privacy ('private' = invite-only, 'discoverable' = findable but still join-gated).
+  await ensureColumn(c, 'conversations', 'image', 'TEXT');
+  await ensureColumn(c, 'conversations', 'adminIds', 'TEXT');
+  await ensureColumn(c, 'conversations', 'description', 'TEXT');
+  await ensureColumn(c, 'conversations', 'privacy', "TEXT DEFAULT 'private'");
 }
 
 async function ensureColumn(c: Client, table: string, column: string, type: string) {

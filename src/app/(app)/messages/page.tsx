@@ -6,9 +6,11 @@ import Sidebar from '@/components/layout/Sidebar';
 import BottomNav from '@/components/layout/BottomNav';
 import TopBar from '@/components/layout/TopBar';
 import { useApp } from '@/context/AppContext';
-import { Send, ArrowLeft, Users, Search, MessageCircle, Lock, Plus, X, Check } from 'lucide-react';
+import { Send, ArrowLeft, Users, UsersRound, Search, MessageCircle, Lock, X, Settings, Compass, Globe } from 'lucide-react';
 import { formatTimeAgo } from '@/lib/utils';
 import Avatar from '@/components/Avatar';
+import CreateGroupModal from '@/components/messages/CreateGroupModal';
+import ManageGroupModal from '@/components/messages/ManageGroupModal';
 
 export default function MessagesPage() {
   return (
@@ -19,13 +21,15 @@ export default function MessagesPage() {
 }
 
 function MessagesContent() {
-  const { currentUser, conversations, sendMessage, getUserById, isConnected, markConversationRead, createConversation, connections, users } = useApp();
+  const { currentUser, conversations, sendMessage, getUserById, isConnected, markConversationRead, createGroup, groupAction, connections } = useApp();
   const searchParams = useSearchParams();
   const router = useRouter();
   const [selectedConv, setSelectedConv] = useState<string | null>(null);
   const [messageText, setMessageText] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
-  const [showNewGroup, setShowNewGroup] = useState(false);
+  const [showCreateGroup, setShowCreateGroup] = useState(false);
+  const [showManageGroup, setShowManageGroup] = useState(false);
+  const [showDiscover, setShowDiscover] = useState(false);
   const [photoLightbox, setPhotoLightbox] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -62,10 +66,12 @@ function MessagesContent() {
   };
 
   const getConversationAvatar = (conv: typeof conversations[0]) => {
-    if (conv.type === 'group' || conv.type === 'event') return null;
+    if (conv.type === 'group' || conv.type === 'event') return conv.image || null;
     const otherParticipant = conv.participants.find(p => p !== currentUser.id);
     return otherParticipant ? getUserById(otherParticipant)?.avatar || null : null;
   };
+
+  const isGroupAdmin = (conv: typeof conversations[0]) => !!conv.adminIds?.includes(currentUser.id);
 
   const canSendInConversation = (conv: typeof conversations[0]): boolean => {
     if (conv.type !== 'direct') return true; // group/event chats always allowed
@@ -96,7 +102,12 @@ function MessagesContent() {
             <div className="p-4 border-b border-gray-100">
               <div className="flex items-center justify-between mb-3">
                 <h2 className="font-bold text-lg">Messages</h2>
-                <button onClick={() => setShowNewGroup(true)} className="p-2 rounded-lg hover:bg-gray-100 text-campus-primary" title="New group chat"><Plus size={20} /></button>
+                <div className="flex items-center gap-1">
+                  <button onClick={() => setShowDiscover(true)} aria-label="Discover groups" title="Discover groups" className="p-2 rounded-lg hover:bg-gray-100 text-gray-500"><Compass size={20} /></button>
+                  <button onClick={() => setShowCreateGroup(true)} aria-label="Create group" title="Create Group" className="flex items-center gap-1 px-3 py-2 rounded-lg bg-campus-primary/10 text-campus-primary text-sm font-medium hover:bg-campus-primary/15">
+                    <UsersRound size={18} /> Group
+                  </button>
+                </div>
               </div>
               <div className="relative">
                 <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
@@ -156,10 +167,15 @@ function MessagesContent() {
                   ) : (
                     <div className="w-10 h-10 rounded-full bg-gradient-to-br from-campus-primary to-campus-accent flex items-center justify-center"><Users size={18} className="text-white" /></div>
                   )}
-                  <div>
+                  <div className="flex-1 min-w-0">
                     {otherUserId ? (
                       <button onClick={() => router.push(`/profile/${otherUserId}`)} className="font-semibold text-sm hover:text-campus-primary text-left">
                         {getConversationName(selectedConversation)}
+                      </button>
+                    ) : selectedConversation.type === 'group' ? (
+                      <button onClick={() => setShowManageGroup(true)} className="font-semibold text-sm hover:text-campus-primary text-left flex items-center gap-1">
+                        {getConversationName(selectedConversation)}
+                        {isGroupAdmin(selectedConversation) && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-campus-primary/10 text-campus-primary">ADMIN</span>}
                       </button>
                     ) : (
                       <p className="font-semibold text-sm">{getConversationName(selectedConversation)}</p>
@@ -171,9 +187,12 @@ function MessagesContent() {
                         <p className="text-xs text-gray-400">Tap name to view profile</p>
                       )
                     ) : (
-                      <p className="text-xs text-gray-500">{selectedConversation.participants.length} members</p>
+                      <button onClick={() => selectedConversation.type === 'group' && setShowManageGroup(true)} className="text-xs text-gray-500 text-left">{selectedConversation.participants.length} members</button>
                     )}
                   </div>
+                  {selectedConversation.type === 'group' && (
+                    <button onClick={() => setShowManageGroup(true)} aria-label="Group settings" title="Group settings" className="p-2 rounded-lg hover:bg-gray-100 text-gray-500 flex-shrink-0"><Settings size={18} /></button>
+                  )}
                 </div>
 
                 <div className="flex-1 overflow-y-auto p-4 space-y-3">
@@ -258,11 +277,30 @@ function MessagesContent() {
           </div>
         </div>
 
-        {showNewGroup && (
-          <NewGroupModal
+        {showCreateGroup && (
+          <CreateGroupModal
             friends={myFriends}
-            onClose={() => setShowNewGroup(false)}
-            onCreate={(name, ids) => { const id = createConversation(ids, name, 'group'); setShowNewGroup(false); setSelectedConv(id); }}
+            onClose={() => setShowCreateGroup(false)}
+            onCreate={async (opts) => {
+              const id = await createGroup(opts);
+              setShowCreateGroup(false);
+              if (id) setSelectedConv(id);
+            }}
+          />
+        )}
+
+        {showManageGroup && selectedConv && (
+          <ManageGroupModal
+            groupId={selectedConv}
+            onClose={() => setShowManageGroup(false)}
+            onLeftOrDeleted={() => { setShowManageGroup(false); setSelectedConv(null); }}
+          />
+        )}
+
+        {showDiscover && (
+          <DiscoverGroupsModal
+            onClose={() => setShowDiscover(false)}
+            onJoined={(id) => { setShowDiscover(false); setSelectedConv(id); }}
           />
         )}
 
@@ -279,41 +317,53 @@ function MessagesContent() {
   );
 }
 
-function NewGroupModal({ friends, onClose, onCreate }: { friends: any[]; onClose: () => void; onCreate: (name: string, ids: string[]) => void }) {
-  const [name, setName] = useState('');
-  const [selected, setSelected] = useState<string[]>([]);
-  const [error, setError] = useState('');
+// Browse discoverable groups and join one.
+function DiscoverGroupsModal({ onClose, onJoined }: { onClose: () => void; onJoined: (id: string) => void }) {
+  const { groupAction } = useApp();
+  const [groups, setGroups] = useState<{ id: string; name: string; description: string; image: string; memberCount: number }[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [joining, setJoining] = useState<string | null>(null);
 
-  const toggle = (id: string) => setSelected(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  useEffect(() => {
+    fetch('/api/groups/discover', { credentials: 'include' })
+      .then(r => r.ok ? r.json() : [])
+      .then(d => { if (Array.isArray(d)) setGroups(d); })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
 
-  const handleCreate = () => {
-    if (!name.trim()) { setError('Give your group a name'); return; }
-    if (selected.length === 0) { setError('Add at least one friend'); return; }
-    onCreate(name.trim(), selected);
+  const join = async (id: string) => {
+    setJoining(id);
+    const ok = await groupAction(id, { action: 'join' });
+    setJoining(null);
+    if (ok) onJoined(id);
   };
 
   return (
-    <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 bg-black/60 z-[60] flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl w-full max-w-sm p-6 max-h-[85vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="font-bold text-lg">New Group Chat</h3>
-          <button onClick={onClose} className="p-1 rounded-lg hover:bg-gray-100"><X size={20} /></button>
+          <h3 className="font-bold text-lg flex items-center gap-2"><Compass size={18} /> Discover Groups</h3>
+          <button onClick={onClose} aria-label="Close" className="p-1 rounded-lg hover:bg-gray-100"><X size={20} /></button>
         </div>
-        {error && <div className="p-3 mb-3 bg-red-50 border border-red-100 rounded-xl text-sm text-red-700">{error}</div>}
-        <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="Group name (e.g. Study Squad)" className="input-field mb-4" />
-        <p className="text-xs font-medium text-gray-600 mb-2">Add friends ({selected.length} selected)</p>
-        {friends.length > 0 ? (
-          <div className="space-y-1 max-h-52 overflow-y-auto mb-4">
-            {friends.map(f => (
-              <button key={f.id} onClick={() => toggle(f.id)} className={`w-full flex items-center gap-3 p-2 rounded-xl transition-colors ${selected.includes(f.id) ? 'bg-campus-primary/10' : 'hover:bg-gray-50'}`}>
-                <Avatar src={f.avatar} name={f.name} size={36} />
-                <span className="flex-1 text-left text-sm font-medium">{f.name}</span>
-                {selected.includes(f.id) && <Check size={16} className="text-campus-primary" />}
-              </button>
+        {loading ? (
+          <p className="text-sm text-gray-400 text-center py-6">Loading…</p>
+        ) : groups.length === 0 ? (
+          <div className="text-center py-8 text-gray-400"><Globe size={28} className="mx-auto mb-2 opacity-50" /><p className="text-sm">No discoverable groups yet</p></div>
+        ) : (
+          <div className="space-y-2">
+            {groups.map(g => (
+              <div key={g.id} className="flex items-center gap-3 p-2 rounded-xl border border-gray-100">
+                {g.image ? <img src={g.image} alt="" className="w-11 h-11 rounded-xl object-cover" /> : <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-campus-primary to-campus-accent flex items-center justify-center"><Users size={18} className="text-white" /></div>}
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium truncate">{g.name}</p>
+                  <p className="text-[11px] text-gray-400">{g.memberCount} member{g.memberCount !== 1 ? 's' : ''}</p>
+                </div>
+                <button onClick={() => join(g.id)} disabled={joining === g.id} className="btn-primary text-xs px-3 py-1.5 disabled:opacity-50">{joining === g.id ? 'Joining…' : 'Join'}</button>
+              </div>
             ))}
           </div>
-        ) : <p className="text-sm text-gray-400 mb-4">You need friends to create a group. Connect with people first!</p>}
-        <button onClick={handleCreate} disabled={friends.length === 0} className="btn-primary w-full disabled:opacity-50">Create Group</button>
+        )}
       </div>
     </div>
   );

@@ -26,6 +26,9 @@ interface AppContextType {
   conversations: Conversation[];
   sendMessage: (conversationId: string, content: string) => void;
   createConversation: (participantIds: string[], name?: string, type?: 'direct' | 'group') => string;
+  createGroup: (opts: { name: string; description?: string; image?: string; privacy?: 'private' | 'discoverable'; memberIds: string[] }) => Promise<string | null>;
+  groupAction: (groupId: string, body: Record<string, unknown>) => Promise<boolean>;
+  deleteGroup: (groupId: string) => Promise<boolean>;
   getOrCreateDirectConversation: (userId: string) => string | null;
   markConversationRead: (conversationId: string) => void;
   notifications: Notification[];
@@ -363,6 +366,39 @@ export function AppProvider({ children }: { children: ReactNode }) {
     return tempId;
   }, [currentUser.id]);
 
+  // Create a group with full metadata (name, description, image, privacy, members).
+  // Returns the real server conversation id, or null on failure.
+  const createGroup = useCallback(async (opts: { name: string; description?: string; image?: string; privacy?: 'private' | 'discoverable'; memberIds: string[] }): Promise<string | null> => {
+    try {
+      const res = await fetch('/api/conversations', {
+        method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'group', name: opts.name, description: opts.description || '', image: opts.image || '', privacy: opts.privacy || 'private', participantIds: opts.memberIds }),
+      });
+      if (!res.ok) return null;
+      const data = await res.json();
+      await loadFromApi();
+      return data?.id || null;
+    } catch { return null; }
+  }, [currentUser.id]);
+
+  // Group management — all authorization is enforced server-side; these just call the API
+  // and refresh. Returns true on success.
+  const groupAction = useCallback(async (groupId: string, body: Record<string, unknown>): Promise<boolean> => {
+    try {
+      const res = await fetch(`/api/conversations/${groupId}`, { method: 'PATCH', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      if (res.ok) { await loadFromApi(); return true; }
+      return false;
+    } catch { return false; }
+  }, [currentUser.id]);
+
+  const deleteGroup = useCallback(async (groupId: string): Promise<boolean> => {
+    try {
+      const res = await fetch(`/api/conversations/${groupId}`, { method: 'DELETE', credentials: 'include' });
+      if (res.ok) { setConversations(prev => prev.filter(c => c.id !== groupId)); return true; }
+      return false;
+    } catch { return false; }
+  }, []);
+
   const createGame = useCallback(async (type: Game['type'], title: string, data: any, opts?: { visibility?: 'public' | 'private'; targetUserId?: string }): Promise<string | null> => {
     try {
       const res = await fetch('/api/games', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type, creatorId: currentUser.id, title, data, visibility: opts?.visibility || 'public', targetUserId: opts?.targetUserId }) });
@@ -593,7 +629,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       posts, addPost, likePost, savePost, addComment,
       connections, relationships, connectionRequests,
       sendRequest, cancelRequest, acceptRequest, rejectRequest, removeFriend, getConnectionStatus, getRequestForUser, isConnected,
-      conversations, sendMessage, createConversation, getOrCreateDirectConversation, markConversationRead,
+      conversations, sendMessage, createConversation, createGroup, groupAction, deleteGroup, getOrCreateDirectConversation, markConversationRead,
       notifications, unreadNotificationCount, markNotificationRead, markAllNotificationsRead, addNotification,
       games, createGame, deleteGame, voteWouldYouRather, voteNeverHaveIEver, guessTwoTruths, revealTwoTruths,
       secretAdmirers, sendSecretAdmirer, respondToAdmirer,

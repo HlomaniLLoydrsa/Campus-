@@ -28,6 +28,10 @@ export async function GET() {
     result.push({
       ...conv,
       participants: JSON.parse(conv.participants || '[]'),
+      adminIds: JSON.parse(conv.adminIds || '[]'),
+      image: conv.image || undefined,
+      description: conv.description || undefined,
+      privacy: conv.privacy || 'private',
       messages: messages.map(m => ({ ...m, read: !!m.read })),
       lastMessage: lastMessage ? { ...lastMessage, read: !!lastMessage.read } : null,
       unreadCount,
@@ -71,8 +75,21 @@ export async function POST(request: Request) {
   const createdAt = new Date().toISOString();
   await db.prepare('INSERT INTO messages (id, conversationId, senderId, content, read, createdAt) VALUES (?, ?, ?, ?, 0, ?)').run(id, conversationId, senderId, content, createdAt);
 
-  // NOTE: messages intentionally do NOT create notifications.
-  // Unread messages are surfaced only via the message icon badge (conversation unreadCount).
+  // DIRECT messages intentionally do NOT create notifications — unread is surfaced
+  // only via the conversation unreadCount badge. GROUP messages DO notify each other
+  // member (once each, never the sender) so people know activity happened in a group
+  // they may not have open. Deterministic id per (message) keeps it dedupe-safe.
+  if (conv.type === 'group') {
+    const sender = await db.prepare('SELECT name, username FROM users WHERE id = ?').get(senderId) as any;
+    const senderName = sender?.name || sender?.username || 'Someone';
+    const groupName = conv.name || 'a group';
+    for (const memberId of participants) {
+      if (memberId === senderId) continue;
+      const nid = `n_${crypto.randomUUID().slice(0, 8)}`;
+      await db.prepare('INSERT INTO notifications (id, userId, type, fromUserId, message, relatedId, relatedType, read) VALUES (?, ?, ?, ?, ?, ?, ?, 0)')
+        .run(nid, memberId, 'group-message', senderId, `${senderName} messaged "${groupName}"`, conversationId, 'conversation');
+    }
+  }
 
   return NextResponse.json({ id, conversationId, senderId, content, read: false, createdAt }, { status: 201 });
 }
