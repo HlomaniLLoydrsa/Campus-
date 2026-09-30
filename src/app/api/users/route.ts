@@ -3,7 +3,7 @@ import { getDb } from '@/lib/db';
 
 // Public-safe columns only — NEVER select password or email into a list every user can read.
 const PUBLIC_COLUMNS =
-  'id, name, username, avatar, coverImage, bio, course, faculty, yearOfStudy, interests, hobbies, isOnline, lastSeen, wingmanEnabled, createdAt';
+  'id, name, username, avatar, coverImage, bio, course, faculty, yearOfStudy, age, gender, university, interests, hobbies, isOnline, lastSeen, wingmanEnabled, createdAt';
 
 export async function GET() {
   const db = await getDb();

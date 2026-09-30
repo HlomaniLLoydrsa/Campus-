@@ -8,7 +8,7 @@ import TopBar from '@/components/layout/TopBar';
 import PostCard from '@/components/posts/PostCard';
 import ConnectActions from '@/components/connections/ConnectActions';
 import { useApp } from '@/context/AppContext';
-import { BookOpen, MapPin, Calendar, MessageCircle } from 'lucide-react';
+import { BookOpen, MapPin, Calendar, MessageCircle, GraduationCap, User as UserIcon } from 'lucide-react';
 import Link from 'next/link';
 
 export default function UserProfilePage() {
@@ -86,11 +86,14 @@ export default function UserProfilePage() {
               </div>
             )}
 
-            <p className="text-sm text-gray-700 mt-4">{user.bio}</p>
-            <div className="flex flex-wrap gap-4 mt-3 text-sm text-gray-500">
-              <span className="flex items-center gap-1"><BookOpen size={14} /> {user.course}</span>
-              <span className="flex items-center gap-1"><MapPin size={14} /> {user.faculty}</span>
-              <span className="flex items-center gap-1"><Calendar size={14} /> Year {user.yearOfStudy}</span>
+            {user.bio && <p className="text-sm text-gray-700 mt-4">{user.bio}</p>}
+            <div className="flex flex-wrap gap-x-4 gap-y-2 mt-3 text-sm text-gray-500">
+              {user.university && <span className="flex items-center gap-1"><GraduationCap size={14} /> {user.university}</span>}
+              {user.course && <span className="flex items-center gap-1"><BookOpen size={14} /> {user.course}</span>}
+              {user.faculty && <span className="flex items-center gap-1"><MapPin size={14} /> {user.faculty}</span>}
+              {user.yearOfStudy > 0 && <span className="flex items-center gap-1"><Calendar size={14} /> Year {user.yearOfStudy}</span>}
+              {user.age ? <span className="flex items-center gap-1"><UserIcon size={14} /> {user.age} yrs</span> : null}
+              {user.gender && <span className="flex items-center gap-1">{user.gender}</span>}
             </div>
 
             <div className="flex gap-6 mt-4 py-4 border-y border-gray-100">
