@@ -27,37 +27,56 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   // The post owner (works for anonymous posts too, matched via ownerId).
   const ownerId = post.ownerId || post.authorId;
 
-  if (action === 'like') {
-    const likedBy = JSON.parse(post.likedBy || '[]');
-    const isLiked = likedBy.includes(userId);
-    const newLikedBy = isLiked ? likedBy.filter((u: string) => u !== userId) : [...likedBy, userId];
-    await db.prepare('UPDATE posts SET likedBy = ?, likes = ? WHERE id = ?').run(JSON.stringify(newLikedBy), newLikedBy.length, id);
-    // Notify the owner on a NEW like (never self, never anonymous authors we can't resolve).
-    // Deterministic id per (post, liker) so repeated like/unlike/like never spams; removed on unlike.
+  // Reactions ARE likes. A user has AT MOST ONE reaction (an emoji). 'like' is just
+  // a reaction with the default heart. likedBy = everyone who reacted with anything;
+  // likes = that count. reactions = emoji -> userIds, each user in exactly one bucket.
+  const DEFAULT_REACTION = '❤️';
+  if (action === 'like' || action === 'react') {
+    const emoji = action === 'like'
+      ? DEFAULT_REACTION
+      : (body.emoji || '').toString();
+    if (!emoji || emoji.length > 8) return NextResponse.json({ error: 'emoji required' }, { status: 400 });
+
+    let reactions: Record<string, string[]> = {};
+    try { reactions = post.reactions ? JSON.parse(post.reactions) : {}; } catch { reactions = {}; }
+
+    // What (if anything) is the user's current reaction?
+    let currentEmoji: string | null = null;
+    for (const [e, ids] of Object.entries(reactions)) {
+      if ((ids as string[]).includes(userId)) { currentEmoji = e; break; }
+    }
+    // Remove the user from every bucket first (one reaction per user).
+    for (const e of Object.keys(reactions)) {
+      reactions[e] = (reactions[e] as string[]).filter(u => u !== userId);
+      if (reactions[e].length === 0) delete reactions[e];
+    }
+    // Tapping the SAME reaction again removes it (toggle off). Otherwise set the new one.
+    const removing = currentEmoji === emoji;
+    if (!removing) {
+      reactions[emoji] = [...(reactions[emoji] || []), userId];
+    }
+
+    // likedBy = union of all reactor ids; likes = count.
+    const reactorSet = new Set<string>();
+    for (const ids of Object.values(reactions)) for (const u of ids as string[]) reactorSet.add(u);
+    const newLikedBy = Array.from(reactorSet);
+
+    await db.prepare('UPDATE posts SET reactions = ?, likedBy = ?, likes = ? WHERE id = ?')
+      .run(JSON.stringify(reactions), JSON.stringify(newLikedBy), newLikedBy.length, id);
+
+    // Notify the owner when a user reacts (not on removal, never self). One notif per (post, reactor).
     if (ownerId && ownerId !== userId) {
       const nid = `nlk_${id}_${userId}`;
-      if (isLiked) {
+      if (removing) {
         await db.prepare('DELETE FROM notifications WHERE id = ?').run(nid);
       } else {
         await db.prepare('INSERT OR IGNORE INTO notifications (id, userId, type, fromUserId, message, relatedId, relatedType, read) VALUES (?, ?, ?, ?, ?, ?, ?, 0)').run(
-          nid, ownerId, 'like', userId, `${await actorName(db, userId)} liked your post`, id, 'post'
+          nid, ownerId, 'like', userId, `${await actorName(db, userId)} reacted to your post`, id, 'post'
         );
       }
     }
-    return NextResponse.json({ likes: newLikedBy.length, likedBy: newLikedBy });
-  }
 
-  // Toggle an emoji reaction on a post (any signed-in user).
-  if (action === 'react') {
-    const emoji = (body.emoji || '').toString();
-    if (!emoji || emoji.length > 8) return NextResponse.json({ error: 'emoji required' }, { status: 400 });
-    let reactions: Record<string, string[]> = {};
-    try { reactions = post.reactions ? JSON.parse(post.reactions) : {}; } catch { reactions = {}; }
-    const current = new Set(reactions[emoji] || []);
-    if (current.has(userId)) current.delete(userId); else current.add(userId);
-    if (current.size === 0) delete reactions[emoji]; else reactions[emoji] = Array.from(current);
-    await db.prepare('UPDATE posts SET reactions = ? WHERE id = ?').run(JSON.stringify(reactions), id);
-    return NextResponse.json({ success: true, reactions });
+    return NextResponse.json({ likes: newLikedBy.length, likedBy: newLikedBy, reactions });
   }
 
   if (action === 'save') {

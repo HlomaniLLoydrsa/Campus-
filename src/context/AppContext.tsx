@@ -283,29 +283,40 @@ export function AppProvider({ children }: { children: ReactNode }) {
     fetch('/api/posts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(post) }).catch(() => {});
   }, []);
 
-  const likePost = useCallback((postId: string) => {
-    setPosts(prev => prev.map(p => {
-      if (p.id === postId) {
-        const isLiked = p.likedBy.includes(currentUser.id);
-        return { ...p, likes: isLiked ? p.likes - 1 : p.likes + 1, likedBy: isLiked ? p.likedBy.filter(id => id !== currentUser.id) : [...p.likedBy, currentUser.id] };
-      }
-      return p;
-    }));
-    fetch(`/api/posts/${postId}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'like', userId: currentUser.id }) }).catch(() => {});
-  }, [currentUser.id]);
-
-  // Toggle an emoji reaction on a post (optimistic + server).
-  const reactToPost = useCallback((postId: string, emoji: string) => {
+  // Reactions ARE likes. Each user has at most one reaction (an emoji). Setting a
+  // reaction moves the user out of any other bucket; tapping the same one removes it.
+  // likedBy = everyone who reacted; likes = that count. Mirrors the server exactly.
+  const applyReaction = useCallback((postId: string, emoji: string) => {
     setPosts(prev => prev.map(p => {
       if (p.id !== postId) return p;
-      const reactions = { ...(p.reactions || {}) };
-      const list = new Set(reactions[emoji] || []);
-      if (list.has(currentUser.id)) list.delete(currentUser.id); else list.add(currentUser.id);
-      if (list.size === 0) delete reactions[emoji]; else reactions[emoji] = Array.from(list);
-      return { ...p, reactions };
+      const reactions: Record<string, string[]> = {};
+      for (const [e, ids] of Object.entries(p.reactions || {})) reactions[e] = [...(ids as string[])];
+      // Current reaction of this user (if any).
+      let currentEmoji: string | null = null;
+      for (const [e, ids] of Object.entries(reactions)) { if (ids.includes(currentUser.id)) { currentEmoji = e; break; } }
+      // Remove from all buckets.
+      for (const e of Object.keys(reactions)) {
+        reactions[e] = reactions[e].filter(u => u !== currentUser.id);
+        if (reactions[e].length === 0) delete reactions[e];
+      }
+      const removing = currentEmoji === emoji;
+      if (!removing) reactions[emoji] = [...(reactions[emoji] || []), currentUser.id];
+      const reactorSet = new Set<string>();
+      for (const ids of Object.values(reactions)) for (const u of ids) reactorSet.add(u);
+      const likedBy = Array.from(reactorSet);
+      return { ...p, reactions, likedBy, likes: likedBy.length };
     }));
-    fetch(`/api/posts/${postId}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'react', emoji }) }).catch(() => {});
   }, [currentUser.id]);
+
+  const likePost = useCallback((postId: string) => {
+    applyReaction(postId, '❤️');
+    fetch(`/api/posts/${postId}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'like', userId: currentUser.id }) }).catch(() => {});
+  }, [currentUser.id, applyReaction]);
+
+  const reactToPost = useCallback((postId: string, emoji: string) => {
+    applyReaction(postId, emoji);
+    fetch(`/api/posts/${postId}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'react', emoji }) }).catch(() => {});
+  }, [currentUser.id, applyReaction]);
 
   const savePost = useCallback((postId: string) => {
     setPosts(prev => prev.map(p => {

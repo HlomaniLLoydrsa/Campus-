@@ -2,7 +2,7 @@
  * IMPORTANT: never cache API responses or any private/authenticated data.
  * API calls always go to the network so one user never sees another user's data.
  */
-const CACHE = 'vybe-static-v2';
+const CACHE = 'vybe-static-v3';
 const OFFLINE_URL = '/offline.html';
 
 // Static assets safe to precache (the shell + icons + offline page).
