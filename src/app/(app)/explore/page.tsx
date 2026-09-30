@@ -32,7 +32,6 @@ const exploreCards: GameCard[] = [
   { id: 'secret-admirer', title: 'Secret Admirer', description: 'Send anonymous appreciation', emoji: '💘', gradient: 'from-pink-400 to-red-500', bgImage: '/images/admirer-bg.svg', link: '/secret-admirer' },
   { id: 'i-saw-you', title: 'I Saw You', description: 'Missed connections on campus', emoji: '👀', gradient: 'from-violet-500 to-purple-600', bgImage: '/images/isawu-bg.svg', link: '/i-saw-you' },
   { id: 'wingman', title: 'Wingman Mode', description: 'Let friends help you connect', emoji: '🏹', gradient: 'from-indigo-500 to-blue-600', bgImage: '/images/wingman-bg.svg', link: '/wingman' },
-  { id: 'vybe-map', title: 'Vybe Map', description: "See which friends are around campus", emoji: '🗺️', gradient: 'from-teal-500 to-cyan-600', link: '/map' },
 ];
 
 // VYBE ecosystem modules. href = live; undefined = "Soon".
@@ -44,7 +43,7 @@ const ECOSYSTEM: { label: string; emoji: string; color: string; href?: string }[
   { label: 'Jobs & Gigs', emoji: '💼', color: 'bg-indigo-100', href: '/services' },
   { label: 'Planner', emoji: '🗓️', color: 'bg-teal-100', href: '/planner' },
   { label: 'Tutors', emoji: '🎓', color: 'bg-purple-100', href: '/services?kind=tutor' },
-  { label: 'Opportunities', emoji: '🚀', color: 'bg-rose-100' },
+  { label: 'Vybe Map', emoji: '🗺️', color: 'bg-teal-100', href: '/map' },
   { label: 'Communities', emoji: '🧑‍🤝‍🧑', color: 'bg-cyan-100' },
   { label: 'Help', emoji: '🆘', color: 'bg-red-100' },
   { label: 'Noticeboard', emoji: '📢', color: 'bg-yellow-100' },
