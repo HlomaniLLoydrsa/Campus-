@@ -98,7 +98,9 @@ export async function PATCH(request: Request) {
     if (!comment?.trim()) return NextResponse.json({ error: 'comment required' }, { status: 400 });
     if (userId === story.userId) return NextResponse.json({ error: 'You cannot comment on your own story' }, { status: 400 });
 
-    const friend = await db.prepare("SELECT 1 FROM connections WHERE userId = ? AND connectedUserId = ? AND type = 'friend'").get(userId, story.userId);
+    const friend = await db.prepare(
+      "SELECT 1 FROM connections WHERE userId = ? AND connectedUserId = ? AND type IN ('friend', 'relationship')"
+    ).get(userId, story.userId);
     if (!friend) return NextResponse.json({ error: 'Only friends can comment on this story' }, { status: 403 });
 
     const sender = await db.prepare('SELECT name FROM users WHERE id = ?').get(userId) as any;

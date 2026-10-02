@@ -274,7 +274,8 @@ function StoryCreateModal({ onClose, onCreate }: { onClose: () => void; onCreate
 }
 
 function StoryViewer({ stories, user, onClose }: { stories: Story[]; user: any; onClose: () => void }) {
-  const { currentUser, isConnected, viewStory, commentOnStory, getUserById } = useApp();
+  const { currentUser, isConnected, getConnectionStatus, viewStory, commentOnStory, getUserById } = useApp();
+  const { toast } = useFeedback();
   const [index, setIndex] = useState(0);
   const [showViewers, setShowViewers] = useState(false);
   const [commentText, setCommentText] = useState('');
@@ -292,7 +293,9 @@ function StoryViewer({ stories, user, onClose }: { stories: Story[]; user: any; 
   if (stories.length === 0 || !user || !story) return null;
 
   const isOwner = user.id === currentUser.id;
-  const canComment = !isOwner && isConnected(user.id); // only friends can comment
+  // Match the API which accepts friend OR relationship connections.
+  const status = getConnectionStatus(user.id);
+  const canComment = !isOwner && (status === 'friends' || status === 'relationship');
   const viewers = (story.views || []) as string[];
 
   const next = () => { if (index < stories.length - 1) setIndex(index + 1); else onClose(); };
@@ -301,7 +304,13 @@ function StoryViewer({ stories, user, onClose }: { stories: Story[]; user: any; 
   const submitComment = async () => {
     if (!commentText.trim()) return;
     const ok = await commentOnStory(story.id, commentText.trim());
-    if (ok) { setCommentSent(true); setCommentText(''); setTimeout(() => setCommentSent(false), 1600); }
+    if (ok) {
+      setCommentSent(true);
+      setCommentText('');
+      setTimeout(() => setCommentSent(false), 1600);
+    } else {
+      toast('Could not send reply — try again');
+    }
   };
 
   return (
