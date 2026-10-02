@@ -42,6 +42,8 @@ campus.db
 campus.db-wal
 campus.db-shm
 
-# locally uploaded images (production uses the persistent disk)
-/public/uploads/*
-!/public/uploads/.gitkeep
+# locally uploaded images — tracked in git so local dev state survives.
+# Production (Netlify) uses Netlify Blobs instead of this folder.
+# Uncomment the lines below to stop tracking uploads in git if the folder gets too large:
+# /public/uploads/*
+# !/public/uploads/.gitkeep
