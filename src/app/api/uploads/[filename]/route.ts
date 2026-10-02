@@ -26,7 +26,17 @@ export async function GET(request: Request, { params }: { params: Promise<{ file
 
   const result = await readImage(filename);
   if (!result) {
-    return NextResponse.json({ error: 'Not found' }, { status: 404 });
+    // Return a transparent 1×1 placeholder SVG so <img> tags show a clean fallback
+    // instead of a broken-image icon. The browser will still treat it as a valid image.
+    const placeholder = `<svg xmlns="http://www.w3.org/2000/svg" width="1" height="1"><rect width="1" height="1" fill="#f3f4f6"/></svg>`;
+    return new NextResponse(placeholder, {
+      status: 200,
+      headers: {
+        'Content-Type': 'image/svg+xml',
+        'Cache-Control': 'no-cache',
+        'X-Content-Type-Options': 'nosniff',
+      },
+    });
   }
 
   const ext = (filename.split('.').pop() || '').toLowerCase();

@@ -583,6 +583,42 @@ async function initializeDb() {
 
   // Safe additive migrations for databases created before newer columns existed.
   // These only run when the column is missing; errors (already exists) are ignored.
+
+  // ── URL migration: /uploads/<file> → /api/uploads/<file> ──────────────────
+  // Old dev builds stored static-path URLs. The canonical path is /api/uploads/
+  // which works in both local dev and Netlify. Run this migration on every
+  // startup so any remaining old-format URLs get fixed automatically.
+  const migrateUploadsUrl = async (table: string, column: string, isJson = false) => {
+    try {
+      const rows = await c.execute(`SELECT id, ${column} FROM ${table} WHERE ${column} IS NOT NULL AND ${column} LIKE '/uploads/%'`);
+      for (const row of rows.rows) {
+        const raw = (row as any)[column];
+        if (!raw) continue;
+        if (isJson) {
+          try {
+            const arr: string[] = JSON.parse(raw);
+            const updated = arr.map((u: string) => u.startsWith('/uploads/') ? u.replace('/uploads/', '/api/uploads/') : u);
+            if (JSON.stringify(arr) !== JSON.stringify(updated)) {
+              await c.execute({ sql: `UPDATE ${table} SET ${column} = ? WHERE id = ?`, args: [JSON.stringify(updated), (row as any).id] });
+            }
+          } catch { /* skip malformed JSON */ }
+        } else {
+          await c.execute({ sql: `UPDATE ${table} SET ${column} = ? WHERE id = ?`, args: [(raw as string).replace('/uploads/', '/api/uploads/'), (row as any).id] });
+        }
+      }
+    } catch { /* table/column may not exist yet — ignore */ }
+  };
+  await migrateUploadsUrl('users', 'avatar');
+  await migrateUploadsUrl('users', 'coverImage');
+  await migrateUploadsUrl('posts', 'images', true);
+  await migrateUploadsUrl('conversations', 'image');
+  await migrateUploadsUrl('stories', 'image');
+  await migrateUploadsUrl('messages', 'attachmentUrl');
+  await migrateUploadsUrl('academy_resources', 'fileUrl');
+  await migrateUploadsUrl('lost_found', 'photo');
+  await migrateUploadsUrl('marketplace', 'images', true);
+  await migrateUploadsUrl('services', 'portfolio', true);
+
   await ensureColumn(c, 'notifications', 'relatedId', 'TEXT');
   await ensureColumn(c, 'notifications', 'relatedType', 'TEXT');
   // ownerId always stores the real author (even for anonymous posts) so the owner can manage them.

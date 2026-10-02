@@ -39,6 +39,7 @@ export async function readImage(filename: string): Promise<{ data: ArrayBuffer; 
     if (!result || !result.data) return null;
     return { data: result.data as ArrayBuffer, contentType: result.metadata?.contentType as string | undefined };
   }
+  // Local dev: read from public/uploads on disk.
   try {
     const buf = await readFile(path.join(LOCAL_DIR, filename));
     return { data: buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength) as ArrayBuffer };
