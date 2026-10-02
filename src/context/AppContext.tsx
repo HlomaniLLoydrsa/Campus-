@@ -78,7 +78,7 @@ interface AppContextType {
   setPresenceLocation: (location: string, note?: string) => Promise<boolean>;
   clearPresence: () => Promise<void>;
   // Vybe Assistant — AI chat buddy.
-  askAssistant: (message: string, history: AssistantTurn[]) => Promise<{ reply: string; source: 'ai' | 'fallback' }>;
+  askAssistant: (message: string, history: AssistantTurn[], imageBase64?: string, imageMimeType?: string) => Promise<{ reply: string; source: 'ai' | 'fallback' }>;
 }
 
 export interface AssistantTurn {
@@ -398,9 +398,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   // Vybe Assistant — send a message + recent history, get a reply. Falls back
   // to a friendly error string if the request fails so the UI never hangs.
-  const askAssistant = useCallback(async (message: string, history: AssistantTurn[]): Promise<{ reply: string; source: 'ai' | 'fallback' }> => {
+  const askAssistant = useCallback(async (message: string, history: AssistantTurn[], imageBase64?: string, imageMimeType?: string): Promise<{ reply: string; source: 'ai' | 'fallback' }> => {
     try {
-      const res = await fetch('/api/assistant', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message, history }) });
+      const res = await fetch('/api/assistant', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message, history, imageBase64, imageMimeType }) });
       if (!res.ok) return { reply: "Sorry, I couldn't answer that just now. Try again in a sec?", source: 'fallback' };
       const data = await res.json();
       return { reply: data.reply || 'Hmm, I got nothing back. Try rephrasing?', source: data.source === 'ai' ? 'ai' : 'fallback' };

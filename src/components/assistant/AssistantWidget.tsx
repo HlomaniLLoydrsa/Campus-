@@ -2,10 +2,13 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { usePathname } from 'next/navigation';
-import { Sparkles, X, Send, Bot } from 'lucide-react';
+import { Sparkles, X, Send, Bot, ImagePlus } from 'lucide-react';
 import { useApp, AssistantTurn } from '@/context/AppContext';
 
-interface Msg extends AssistantTurn { id: string; }
+interface Msg extends AssistantTurn {
+  id: string;
+  imagePreview?: string; // local object-url, shown in the bubble for the current turn
+}
 
 const SUGGESTIONS = [
   'What did I miss?',
@@ -14,6 +17,23 @@ const SUGGESTIONS = [
   'What can I do here?',
 ];
 
+const MAX_IMG_BYTES = 4 * 1024 * 1024; // 4 MB decoded — matches the API cap
+
+/** Convert a File to a base64 string (without the data-url prefix). */
+async function fileToBase64(file: File): Promise<{ base64: string; mimeType: string }> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = reader.result as string;
+      const [header, base64] = dataUrl.split(',');
+      const mimeType = header.replace('data:', '').replace(';base64', '');
+      resolve({ base64, mimeType });
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
 export default function AssistantWidget() {
   const { askAssistant, currentUser } = useApp();
   const pathname = usePathname();
@@ -21,11 +41,11 @@ export default function AssistantWidget() {
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState('');
   const [thinking, setThinking] = useState(false);
+  const [pendingImage, setPendingImage] = useState<{ preview: string; base64: string; mimeType: string } | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // The dedicated /assistant page hosts its own full-screen chat, so hide the
-  // floating widget there to avoid two chat surfaces at once.
   const hidden = pathname === '/assistant';
 
   useEffect(() => {
@@ -38,15 +58,43 @@ export default function AssistantWidget() {
 
   const firstName = (currentUser.name || '').split(' ')[0] || 'there';
 
+  const clearPending = () => {
+    setPendingImage(prev => { if (prev) URL.revokeObjectURL(prev.preview); return null; });
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const handleImagePick = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > MAX_IMG_BYTES) { alert('Image is too large (max 4 MB). Try a smaller photo.'); return; }
+    const preview = URL.createObjectURL(file);
+    try {
+      const { base64, mimeType } = await fileToBase64(file);
+      setPendingImage({ preview, base64, mimeType });
+    } catch { URL.revokeObjectURL(preview); }
+  };
+
   const send = async (text: string) => {
     const trimmed = text.trim();
-    if (!trimmed || thinking) return;
-    const userMsg: Msg = { id: `u${Date.now()}`, role: 'user', content: trimmed };
+    if (!trimmed && !pendingImage) return;
+    if (thinking) return;
+
+    const imagePreview = pendingImage?.preview;
+    const userMsg: Msg = {
+      id: `u${Date.now()}`,
+      role: 'user',
+      content: trimmed || '🖼️ [image]',
+      imagePreview,
+    };
     const history: AssistantTurn[] = messages.map(m => ({ role: m.role, content: m.content }));
+    const { base64, mimeType } = pendingImage ?? {};
+
     setMessages(prev => [...prev, userMsg]);
     setInput('');
+    clearPending();
     setThinking(true);
-    const { reply } = await askAssistant(trimmed, history);
+
+    const { reply } = await askAssistant(trimmed, history, base64, mimeType);
     setMessages(prev => [...prev, { id: `a${Date.now()}`, role: 'assistant', content: reply }]);
     setThinking(false);
   };
@@ -55,7 +103,7 @@ export default function AssistantWidget() {
 
   return (
     <>
-      {/* Floating launcher — sits above the mobile bottom nav */}
+      {/* Floating launcher */}
       {!open && (
         <button
           onClick={() => setOpen(true)}
@@ -97,8 +145,16 @@ export default function AssistantWidget() {
             )}
             {messages.map(m => (
               <div key={m.id} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                <div className={`max-w-[80%] px-3 py-2 rounded-2xl text-sm whitespace-pre-wrap break-words ${m.role === 'user' ? 'bg-campus-primary text-white rounded-br-sm' : 'bg-white border border-gray-100 text-gray-800 rounded-bl-sm'}`}>
-                  {m.content}
+                <div className={`max-w-[80%] rounded-2xl text-sm overflow-hidden ${m.role === 'user' ? 'bg-campus-primary text-white rounded-br-sm' : 'bg-white border border-gray-100 text-gray-800 rounded-bl-sm'}`}>
+                  {m.imagePreview && (
+                    <img src={m.imagePreview} alt="Attached" className="w-full max-h-40 object-cover" />
+                  )}
+                  {m.content && m.content !== '🖼️ [image]' && (
+                    <p className="px-3 py-2 whitespace-pre-wrap break-words">{m.content}</p>
+                  )}
+                  {!m.content && !m.imagePreview && (
+                    <p className="px-3 py-2 whitespace-pre-wrap break-words">{m.content}</p>
+                  )}
                 </div>
               </div>
             ))}
@@ -116,17 +172,28 @@ export default function AssistantWidget() {
           </div>
 
           {/* Input */}
-          <div className="p-3 border-t border-gray-100 flex-shrink-0">
+          <div className="p-3 border-t border-gray-100 flex-shrink-0 space-y-2">
+            {/* Pending image preview */}
+            {pendingImage && (
+              <div className="relative inline-block">
+                <img src={pendingImage.preview} alt="Preview" className="h-16 w-16 object-cover rounded-xl border border-gray-200" />
+                <button onClick={clearPending} aria-label="Remove image" className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-gray-800 text-white flex items-center justify-center shadow"><X size={12} /></button>
+              </div>
+            )}
+            <input ref={fileInputRef} type="file" accept="image/*" onChange={handleImagePick} className="hidden" />
             <form onSubmit={e => { e.preventDefault(); send(input); }} className="flex items-center gap-2">
+              <button type="button" onClick={() => fileInputRef.current?.click()} disabled={thinking} aria-label="Attach image" title="Attach image" className="p-2 rounded-xl text-gray-400 hover:text-campus-primary hover:bg-gray-100 transition-colors flex-shrink-0 disabled:opacity-40">
+                <ImagePlus size={18} />
+              </button>
               <input
                 ref={inputRef}
                 value={input}
                 onChange={e => setInput(e.target.value)}
-                placeholder="Ask me anything…"
+                placeholder={pendingImage ? 'Add a caption… (optional)' : 'Ask me anything…'}
                 maxLength={1000}
                 className="flex-1 px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-campus-primary/20"
               />
-              <button type="submit" disabled={!input.trim() || thinking} aria-label="Send" className="w-9 h-9 rounded-xl gradient-bg text-white flex items-center justify-center disabled:opacity-40 hover:opacity-90 transition-opacity flex-shrink-0">
+              <button type="submit" disabled={(!input.trim() && !pendingImage) || thinking} aria-label="Send" className="w-9 h-9 rounded-xl gradient-bg text-white flex items-center justify-center disabled:opacity-40 hover:opacity-90 transition-opacity flex-shrink-0">
                 <Send size={16} />
               </button>
             </form>

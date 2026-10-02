@@ -17,8 +17,13 @@ export async function POST(request: Request) {
 
   const body = await request.json().catch(() => ({}));
   const message = typeof body.message === 'string' ? body.message.trim() : '';
-  if (!message) return NextResponse.json({ error: 'message required' }, { status: 400 });
+  // A message or an image is required (image-only sends are valid).
+  const imageBase64 = typeof body.imageBase64 === 'string' ? body.imageBase64 : undefined;
+  const imageMimeType = typeof body.imageMimeType === 'string' ? body.imageMimeType : undefined;
+  if (!message && !imageBase64) return NextResponse.json({ error: 'message or image required' }, { status: 400 });
   if (message.length > 1000) return NextResponse.json({ error: 'message too long' }, { status: 400 });
+  // Base64 cap ~5.5MB string (≈ 4MB decoded image).
+  if (imageBase64 && imageBase64.length > 5_500_000) return NextResponse.json({ error: 'image too large' }, { status: 400 });
 
   const history: ChatTurn[] = Array.isArray(body.history)
     ? body.history
@@ -79,6 +84,6 @@ export async function POST(request: Request) {
     upcomingEvents: upcomingEvents.slice(0, 5),
   };
 
-  const result = await askAssistant(ctx, history, message);
+  const result = await askAssistant(ctx, history, message, imageBase64, imageMimeType);
   return NextResponse.json(result);
 }

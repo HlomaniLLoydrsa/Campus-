@@ -24,6 +24,9 @@ export interface AssistantContext {
 export interface ChatTurn {
   role: 'user' | 'assistant';
   content: string;
+  /** Optional base64-encoded image for the current turn (vision). Not re-sent in history. */
+  imageBase64?: string;
+  imageMimeType?: string;
 }
 
 export interface AssistantResult {
@@ -79,16 +82,26 @@ function systemPrompt(ctx: AssistantContext): string {
 }
 
 // ── Gemini call ───────────────────────────────────────────────────
-async function callGemini(ctx: AssistantContext, history: ChatTurn[], message: string): Promise<string | null> {
+async function callGemini(ctx: AssistantContext, history: ChatTurn[], message: string, imageBase64?: string, imageMimeType?: string): Promise<string | null> {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) return null;
   const model = process.env.GEMINI_MODEL || DEFAULT_MODEL;
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
 
   // Build the conversation. Gemini uses roles 'user' and 'model'.
+  // History turns are text-only (images are not re-sent in follow-up turns).
   const contents = [
     ...history.slice(-8).map(t => ({ role: t.role === 'assistant' ? 'model' : 'user', parts: [{ text: t.content }] })),
-    { role: 'user', parts: [{ text: message }] },
+    {
+      role: 'user',
+      parts: [
+        // If an image is attached on this turn, include it as an inlineData part before the text.
+        ...(imageBase64 && imageMimeType
+          ? [{ inlineData: { mimeType: imageMimeType, data: imageBase64 } }]
+          : []),
+        { text: message || (imageBase64 ? 'What is in this image?' : '') },
+      ],
+    },
   ];
 
   try {
@@ -172,8 +185,21 @@ function fallbackReply(ctx: AssistantContext, message: string): string {
 }
 
 // ── Public entry point ────────────────────────────────────────────
-export async function askAssistant(ctx: AssistantContext, history: ChatTurn[], message: string): Promise<AssistantResult> {
-  const ai = await callGemini(ctx, history, message);
+export async function askAssistant(
+  ctx: AssistantContext,
+  history: ChatTurn[],
+  message: string,
+  imageBase64?: string,
+  imageMimeType?: string,
+): Promise<AssistantResult> {
+  const ai = await callGemini(ctx, history, message, imageBase64, imageMimeType);
   if (ai) return { reply: ai, source: 'ai' };
+  // Graceful fallback when an image is sent but AI isn't configured.
+  if (imageBase64 && !isAssistantAiEnabled()) {
+    return {
+      reply: "I can see you sent an image! 🖼️ To let me analyse it, add a GEMINI_API_KEY to your environment (see .env.example). Until then I can only handle text.",
+      source: 'fallback',
+    };
+  }
   return { reply: fallbackReply(ctx, message), source: 'fallback' };
 }
